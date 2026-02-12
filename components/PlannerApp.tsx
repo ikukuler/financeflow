@@ -82,8 +82,10 @@ const PlannerApp: React.FC = () => {
     clearError,
   } = useBudgetPlanner({ enabled: !!user });
 
+  const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const isDemoUser = isDemoUserEmail(user?.email);
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleAddTransaction = useCallback(
     (amount: number, categoryId: string | null, name: string) => {
@@ -95,22 +97,28 @@ const PlannerApp: React.FC = () => {
 
   useEffect(() => {
     if (!isDemoUser || !hasInitialLoadCompleted) {
-      if (cleanupTimerRef.current) {
-        clearTimeout(cleanupTimerRef.current);
-        cleanupTimerRef.current = null;
-      }
-      if (!isDemoUser) {
-        localStorage.removeItem(DEMO_CLEANUP_AT_STORAGE_KEY);
-      }
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (!isDemoUser) localStorage.removeItem(DEMO_CLEANUP_AT_STORAGE_KEY);
+      setTimeRemaining(null);
       return;
     }
 
     const ttlMs = DEMO_CLEANUP_MINUTES * 60 * 1000;
 
-    const scheduleCleanup = (delayMs: number) => {
-      if (cleanupTimerRef.current) {
-        clearTimeout(cleanupTimerRef.current);
-      }
+    const updateCountdown = (cleanupAt: number) => {
+      const remaining = Math.max(0, Math.floor((cleanupAt - Date.now()) / 1000));
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      setTimeRemaining(`${mins}:${secs.toString().padStart(2, '0')}`);
+    };
+
+    const scheduleCleanup = (delayMs: number, cleanupAt: number) => {
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
+      updateCountdown(cleanupAt);
+      countdownIntervalRef.current = setInterval(() => updateCountdown(cleanupAt), 1000);
 
       cleanupTimerRef.current = setTimeout(() => {
         void runCleanup();
@@ -119,33 +127,29 @@ const PlannerApp: React.FC = () => {
 
     const runCleanup = async () => {
       await cleanupDemoData();
-
       const nextCleanupAt = Date.now() + ttlMs;
       localStorage.setItem(DEMO_CLEANUP_AT_STORAGE_KEY, String(nextCleanupAt));
-      scheduleCleanup(ttlMs);
+      scheduleCleanup(ttlMs, nextCleanupAt);
     };
 
-    const now = Date.now();
     const storedValue = localStorage.getItem(DEMO_CLEANUP_AT_STORAGE_KEY);
     const parsedCleanupAt = storedValue ? Number(storedValue) : NaN;
-
+    const now = Date.now();
     const cleanupAt = Number.isFinite(parsedCleanupAt) ? parsedCleanupAt : now + ttlMs;
 
-    if (!Number.isFinite(parsedCleanupAt)) {
+    if (!storedValue) {
       localStorage.setItem(DEMO_CLEANUP_AT_STORAGE_KEY, String(cleanupAt));
     }
 
     if (cleanupAt <= now) {
       void runCleanup();
     } else {
-      scheduleCleanup(cleanupAt - now);
+      scheduleCleanup(cleanupAt - now, cleanupAt);
     }
 
     return () => {
-      if (cleanupTimerRef.current) {
-        clearTimeout(cleanupTimerRef.current);
-        cleanupTimerRef.current = null;
-      }
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, [cleanupDemoData, hasInitialLoadCompleted, isDemoUser]);
 
@@ -178,9 +182,19 @@ const PlannerApp: React.FC = () => {
   return (
     <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-6">
       {isDemoUser && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Demo mode: your categories, transactions and extra plans will be cleared automatically after {DEMO_CLEANUP_MINUTES}{' '}
-          minutes.
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+            <span>
+              <strong>Demo Session:</strong> Data is automatically cleared for privacy.
+            </span>
+          </div>
+          <div className="font-mono font-bold bg-amber-200/50 px-2 py-0.5 rounded text-amber-900">
+            Reset in: {timeRemaining ?? '--:--'}
+          </div>
         </div>
       )}
 

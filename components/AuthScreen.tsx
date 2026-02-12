@@ -43,7 +43,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
       <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold text-slate-800 tracking-tight">FinanceFlow</h1>
-        <p className="mt-2 text-sm text-slate-500">Sign in to sync your planner with Supabase.</p>
+        <p className="mt-2 text-sm text-slate-500">Sign in to sync your planner.</p>
 
         <div className="mt-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
           <button

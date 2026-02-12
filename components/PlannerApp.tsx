@@ -126,10 +126,15 @@ const PlannerApp: React.FC = () => {
     };
 
     const runCleanup = async () => {
-      await cleanupDemoData();
-      const nextCleanupAt = Date.now() + ttlMs;
-      localStorage.setItem(DEMO_CLEANUP_AT_STORAGE_KEY, String(nextCleanupAt));
-      scheduleCleanup(ttlMs, nextCleanupAt);
+      try {
+        await cleanupDemoData();
+      } catch (err) {
+        console.error('Demo cleanup failed:', err);
+      } finally {
+        const nextCleanupAt = Date.now() + ttlMs;
+        localStorage.setItem(DEMO_CLEANUP_AT_STORAGE_KEY, String(nextCleanupAt));
+        scheduleCleanup(ttlMs, nextCleanupAt);
+      }
     };
 
     const storedValue = localStorage.getItem(DEMO_CLEANUP_AT_STORAGE_KEY);
@@ -137,7 +142,7 @@ const PlannerApp: React.FC = () => {
     const now = Date.now();
     const cleanupAt = Number.isFinite(parsedCleanupAt) ? parsedCleanupAt : now + ttlMs;
 
-    if (!storedValue) {
+    if (!Number.isFinite(parsedCleanupAt)) {
       localStorage.setItem(DEMO_CLEANUP_AT_STORAGE_KEY, String(cleanupAt));
     }
 

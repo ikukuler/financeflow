@@ -34,7 +34,7 @@ const DemoLoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
       <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold text-slate-800 tracking-tight">FinanceFlow Demo</h1>
-        <p className="mt-2 text-sm text-slate-500">Use the demo account and get redirected to the standard planner.</p>
+        <p className="mt-2 text-sm text-slate-500">Use the demo account to test the planner.</p>
 
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           Demo data is automatically cleaned every 15 minutes.

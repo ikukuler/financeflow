@@ -30,7 +30,7 @@ const InitialBalanceModal: React.FC<InitialBalanceModalProps> = ({ isOpen, onClo
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity cursor-pointer"
         onClick={onClose}
       />
       
@@ -56,13 +56,13 @@ const InitialBalanceModal: React.FC<InitialBalanceModalProps> = ({ isOpen, onClo
             <button 
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 px-6 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors"
+              className="flex-1 py-3 px-6 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               Cancel
             </button>
             <button 
               type="submit"
-              className="flex-1 py-3 px-6 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-[0.98]"
+              className="flex-1 py-3 px-6 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] cursor-pointer"
             >
               Save Changes
             </button>

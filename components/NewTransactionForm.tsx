@@ -93,7 +93,7 @@ const NewTransactionForm: React.FC<NewTransactionFormProps> = ({ categories, onA
 
       <button 
         type="submit"
-        className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-900 active:scale-[0.98] transition-all shadow-lg"
+        className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-900 active:scale-[0.98] transition-all shadow-lg cursor-pointer"
       >
         Subtract Amounts
       </button>

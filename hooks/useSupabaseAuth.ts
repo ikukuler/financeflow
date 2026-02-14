@@ -124,6 +124,22 @@ export const useSupabaseAuth = () => {
     return true;
   }, [client]);
 
+  const getAccessToken = useCallback(async () => {
+    if (!client) return null;
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await client.auth.getSession();
+
+    if (sessionError) {
+      setError(sessionError.message);
+      return null;
+    }
+
+    return session?.access_token ?? null;
+  }, [client]);
+
   return {
     user,
     isLoading,
@@ -132,6 +148,7 @@ export const useSupabaseAuth = () => {
     signIn,
     signUp,
     signOut,
+    getAccessToken,
     clearError: () => setError(null),
     clearInfo: () => setInfo(null),
   };

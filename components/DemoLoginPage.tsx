@@ -69,7 +69,7 @@ const DemoLoginPage: React.FC = () => {
             <button
               type="button"
               onClick={applyDemoCredentials}
-              className="rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:border-slate-300"
+              className="rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:border-slate-300 cursor-pointer"
             >
               Use demo credentials
             </button>
@@ -77,7 +77,7 @@ const DemoLoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="rounded-xl bg-slate-800 py-2.5 text-sm font-bold text-white hover:bg-slate-900 disabled:opacity-60"
+              className="rounded-xl bg-slate-800 py-2.5 text-sm font-bold text-white hover:bg-slate-900 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
             >
               {isLoading ? 'Please wait...' : 'Enter demo'}
             </button>

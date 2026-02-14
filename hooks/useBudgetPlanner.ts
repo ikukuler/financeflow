@@ -125,7 +125,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
 
   const saveInitialBalance = useCallback(
     async (value: number) => {
-      if (!enabled || !repository) return;
+      if (!enabled || !repository) return false;
 
       const targetPlanId = requirePlanId();
       const prev = initialBalance;
@@ -135,29 +135,44 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
       try {
         setError(null);
         await repository.updateInitialBalance(targetPlanId, value);
+        return true;
       } catch (err) {
         setInitialBalanceState(prev);
         setError(err instanceof Error ? err.message : 'Failed to update initial balance');
+        return false;
       }
     },
     [enabled, repository, initialBalance, requirePlanId],
   );
 
   const cleanupDemoData = useCallback(async () => {
-    if (!repository || !planId) return;
+    if (!repository || !planId) return false;
 
     try {
       setError(null);
       await repository.cleanupDemoData(planId);
       await reloadSnapshot(planId);
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to cleanup demo data');
+      return false;
+    }
+  }, [repository, planId, reloadSnapshot]);
+
+  const reloadPlannerData = useCallback(async () => {
+    if (!repository || !planId) return;
+
+    try {
+      setError(null);
+      await reloadSnapshot(planId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reload planner data');
     }
   }, [repository, planId, reloadSnapshot]);
 
   const addTransaction = useCallback(
     async (amount: number, categoryId: string | null, name = '') => {
-      if (!enabled || !repository) return;
+      if (!enabled || !repository) return false;
 
       const targetPlanId = requirePlanId();
 
@@ -172,8 +187,10 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
         });
 
         setTransactions((prev) => [...prev, created]);
+        return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add transaction');
+        return false;
       }
     },
     [enabled, repository, requirePlanId],
@@ -185,11 +202,12 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
       patch: {
         categoryId?: string | null;
         name?: string;
+        amount?: number;
         isSpent?: boolean;
         spentAt?: string | null;
       },
     ) => {
-      if (!enabled || !repository) return;
+      if (!enabled || !repository) return false;
 
       const currentPlanId = requirePlanId();
 
@@ -197,9 +215,11 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
         setError(null);
         const updated = await repository.updateTransaction(txId, patch);
         setTransactions((prev) => prev.map((tx) => (tx.id === txId ? updated : tx)));
+        return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update transaction');
         await reloadSnapshot(currentPlanId);
+        return false;
       }
     },
     [enabled, repository, reloadSnapshot, requirePlanId],
@@ -207,14 +227,21 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
 
   const moveTransaction = useCallback(
     async (txId: string, categoryId: string | null) => {
-      await updateTransaction(txId, { categoryId });
+      return updateTransaction(txId, { categoryId });
     },
     [updateTransaction],
   );
 
   const updateTransactionName = useCallback(
     async (txId: string, name: string) => {
-      await updateTransaction(txId, { name });
+      return updateTransaction(txId, { name });
+    },
+    [updateTransaction],
+  );
+
+  const updateTransactionAmount = useCallback(
+    async (txId: string, amount: number) => {
+      return updateTransaction(txId, { amount });
     },
     [updateTransaction],
   );
@@ -222,9 +249,9 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
   const toggleTransactionSpent = useCallback(
     async (txId: string) => {
       const tx = transactions.find((item) => item.id === txId);
-      if (!tx) return;
+      if (!tx) return false;
 
-      await updateTransaction(txId, {
+      return updateTransaction(txId, {
         isSpent: !tx.isSpent,
         spentAt: !tx.isSpent ? new Date().toISOString() : null,
       });
@@ -235,18 +262,21 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
   const markCategorySpent = useCallback(
     async (categoryId: string) => {
       const target = transactions.filter((tx) => tx.categoryId === categoryId && !tx.isSpent);
-      if (target.length === 0) return;
+      if (target.length === 0) return true;
 
       for (const tx of target) {
-        await updateTransaction(tx.id, { isSpent: true, spentAt: new Date().toISOString() });
+        const success = await updateTransaction(tx.id, { isSpent: true, spentAt: new Date().toISOString() });
+        if (!success) return false;
       }
+
+      return true;
     },
     [transactions, updateTransaction],
   );
 
   const removeTransaction = useCallback(
     async (txId: string) => {
-      if (!repository) return;
+      if (!repository) return false;
 
       const prev = transactions;
       setTransactions((current) => current.filter((tx) => tx.id !== txId));
@@ -254,9 +284,11 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
       try {
         setError(null);
         await repository.deleteTransaction(txId);
+        return true;
       } catch (err) {
         setTransactions(prev);
         setError(err instanceof Error ? err.message : 'Failed to delete transaction');
+        return false;
       }
     },
     [repository, transactions],
@@ -265,7 +297,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
   const addCategory = useCallback(
     async (name: string) => {
       const trimmedName = name.trim();
-      if (!trimmedName || !enabled || !repository) return;
+      if (!trimmedName || !enabled || !repository) return false;
 
       const targetPlanId = requirePlanId();
 
@@ -279,8 +311,10 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
         });
 
         setCategories((prev) => [...prev, created]);
+        return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to create category');
+        return false;
       }
     },
     [categories.length, enabled, repository, requirePlanId],
@@ -288,7 +322,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
 
   const deleteCategory = useCallback(
     async (id: string) => {
-      if (!repository) return;
+      if (!repository) return false;
 
       const prevCategories = categories;
       const prevTransactions = transactions;
@@ -299,10 +333,12 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
       try {
         setError(null);
         await repository.deleteCategory(id);
+        return true;
       } catch (err) {
         setCategories(prevCategories);
         setTransactions(prevTransactions);
         setError(err instanceof Error ? err.message : 'Failed to delete category');
+        return false;
       }
     },
     [repository, categories, transactions],
@@ -332,6 +368,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
     addTransaction,
     moveTransaction,
     updateTransactionName,
+    updateTransactionAmount,
     toggleTransactionSpent,
     markCategorySpent,
     removeTransaction,
@@ -345,5 +382,6 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
     hasInitialLoadCompleted,
     error,
     clearError: () => setError(null),
+    reloadPlannerData,
   };
 };

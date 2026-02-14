@@ -28,6 +28,7 @@ export interface CreateTransactionInput {
 export interface UpdateTransactionInput {
   categoryId?: string | null;
   name?: string;
+  amount?: number;
   isSpent?: boolean;
   spentAt?: string | null;
 }

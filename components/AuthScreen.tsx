@@ -53,7 +53,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
               onClearError();
               onClearInfo();
             }}
-            className={`rounded-lg py-2 text-sm font-semibold transition ${
+            className={`rounded-lg py-2 text-sm font-semibold transition cursor-pointer ${
               mode === 'signin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -66,7 +66,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
               onClearError();
               onClearInfo();
             }}
-            className={`rounded-lg py-2 text-sm font-semibold transition ${
+            className={`rounded-lg py-2 text-sm font-semibold transition cursor-pointer ${
               mode === 'signup' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -113,7 +113,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full rounded-xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-900 disabled:opacity-60"
+            className="w-full rounded-xl bg-slate-800 py-3 text-sm font-bold text-white hover:bg-slate-900 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
           >
             {isLoading ? 'Please wait...' : submitLabel}
           </button>

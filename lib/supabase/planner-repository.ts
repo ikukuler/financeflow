@@ -258,6 +258,7 @@ export class SupabasePlannerRepository implements PlannerRepository {
 
     if ('categoryId' in patch) updatePayload.category_id = patch.categoryId ?? null;
     if ('name' in patch) updatePayload.title = patch.name ?? '';
+    if ('amount' in patch && patch.amount !== undefined) updatePayload.amount_mdl = patch.amount;
     if ('isSpent' in patch) updatePayload.is_spent = patch.isSpent;
     if ('spentAt' in patch) updatePayload.spent_at = patch.spentAt ?? null;
 

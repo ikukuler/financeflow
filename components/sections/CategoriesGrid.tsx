@@ -7,6 +7,7 @@ interface CategoriesGridProps {
   transactions: Transaction[];
   onMove: (txId: string, categoryId: string | null) => void;
   onUpdateName: (txId: string, name: string) => void;
+  onUpdateAmount: (txId: string, amount: number) => void;
   onToggleSpent: (txId: string) => void;
   onMarkAllSpent: (categoryId: string) => void;
   onRemove: (txId: string) => void;
@@ -18,6 +19,7 @@ const CategoriesGrid: React.FC<CategoriesGridProps> = ({
   transactions,
   onMove,
   onUpdateName,
+  onUpdateAmount,
   onToggleSpent,
   onMarkAllSpent,
   onRemove,
@@ -46,6 +48,7 @@ const CategoriesGrid: React.FC<CategoriesGridProps> = ({
           transactions={transactionsByCategory.get(category.id) ?? []}
           onMove={onMove}
           onUpdateName={onUpdateName}
+          onUpdateAmount={onUpdateAmount}
           onToggleSpent={onToggleSpent}
           onMarkAllSpent={onMarkAllSpent}
           categories={categories}

@@ -9,6 +9,7 @@ interface CategoryBlockProps {
   categories: Category[];
   onMove: (txId: string, categoryId: string | null) => void;
   onUpdateName: (txId: string, name: string) => void;
+  onUpdateAmount: (txId: string, amount: number) => void;
   onToggleSpent: (txId: string) => void;
   onMarkAllSpent: (categoryId: string) => void;
   onRemove: (txId: string) => void;
@@ -26,6 +27,7 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
   categories, 
   onMove, 
   onUpdateName,
+  onUpdateAmount,
   onToggleSpent,
   onMarkAllSpent,
   onRemove,
@@ -145,7 +147,7 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
               <div className="flex items-center gap-1 ml-2">
                 <button 
                   onClick={() => setIsAdding(true)}
-                  className="w-6 h-6 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white rounded-full transition-all active:scale-90"
+                  className="w-6 h-6 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white rounded-full transition-all active:scale-90 cursor-pointer"
                   title="Add expenses to this category"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -155,7 +157,7 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
                 {hasUnspent && (
                   <button 
                     onClick={() => onMarkAllSpent(category.id)}
-                    className="w-6 h-6 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-emerald-600 hover:text-white rounded-full transition-all active:scale-90"
+                    className="w-6 h-6 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-emerald-600 hover:text-white rounded-full transition-all active:scale-90 cursor-pointer"
                     title="Mark all as spent"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -217,13 +219,13 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
                    <button 
                     type="button"
                     onClick={() => { setIsAdding(false); setAddValue(''); }}
-                    className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600"
+                    className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 cursor-pointer"
                    >
                      Cancel
                    </button>
                    <button 
                     type="submit"
-                    className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800"
+                    className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800 cursor-pointer"
                    >
                      Add All
                    </button>
@@ -249,6 +251,7 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
                 categories={categories}
                 onMove={onMove}
                 onUpdateName={onUpdateName}
+                onUpdateAmount={onUpdateAmount}
                 onToggleSpent={onToggleSpent}
                 onRemove={onRemove}
               />

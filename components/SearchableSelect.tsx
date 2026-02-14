@@ -1,5 +1,6 @@
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import Select, { components, type OptionProps, type StylesConfig } from 'react-select';
 import { Category } from '../types';
 
 interface SearchableSelectProps {
@@ -10,191 +11,154 @@ interface SearchableSelectProps {
   className?: string;
 }
 
-const SearchableSelect: React.FC<SearchableSelectProps> = ({ 
-  categories, 
-  value, 
-  onChange, 
-  placeholder = "Select category...",
-  className = "" 
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+type CategoryOption = {
+  value: string | null;
+  label: string;
+  color?: string;
+  isUnallocated?: boolean;
+};
 
-  const selectedCategory = useMemo(() => 
-    value === null ? null : categories.find(c => c.id === value),
-    [categories, value]
-  );
-
-  // Including "Unallocated Pool" as a virtual option at the top of the search results
-  const allOptions = useMemo(() => {
-    const term = search.toLowerCase();
-    const filtered = categories.filter(c => c.name.toLowerCase().includes(term));
-    
-    const options: (Category | null)[] = [];
-    // Only show unallocated if it matches search or search is empty
-    if (!search || "unallocated pool".includes(term)) {
-      options.push(null);
-    }
-    return [...options, ...filtered];
-  }, [categories, search]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Reset active index when list changes
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [allOptions]);
-
-  // Scroll active item into view
-  useEffect(() => {
-    if (isOpen && scrollContainerRef.current) {
-      const activeEl = scrollContainerRef.current.children[activeIndex] as HTMLElement;
-      if (activeEl) {
-        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
-    }
-  }, [activeIndex, isOpen]);
-
-  const handleFocus = () => {
-    setIsOpen(true);
-    setSearch("");
-  };
-
-  const handleSelect = (id: string | null) => {
-    onChange(id);
-    setIsOpen(false);
-    setSearch("");
-    if (inputRef.current) {
-      inputRef.current.blur();
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (e.key === 'ArrowDown' || e.key === 'Enter') {
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setActiveIndex(prev => (prev + 1) % allOptions.length);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setActiveIndex(prev => (prev - 1 + allOptions.length) % allOptions.length);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        e.stopPropagation();
-        const selected = allOptions[activeIndex];
-        handleSelect(selected ? selected.id : null);
-        break;
-      case 'Escape':
-        setIsOpen(false);
-        break;
-      case 'Tab':
-        // Let tab work normally but close dropdown
-        setIsOpen(false);
-        break;
-    }
-  };
-
-  const displayValue = isOpen ? search : (selectedCategory?.name || "");
+const CustomOption = (props: OptionProps<CategoryOption, false>) => {
+  const { data } = props;
 
   return (
-    <div 
-      className={`relative ${className} ${isOpen ? 'z-[110]' : 'z-auto'}`} 
-      ref={containerRef}
-    >
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type="text"
-          value={displayValue}
-          onChange={(e) => setSearch(e.target.value)}
-          onFocus={handleFocus}
-          onKeyDown={handleKeyDown}
-          placeholder={selectedCategory ? selectedCategory.name : placeholder}
-          className={`
-            w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer 
-            text-sm font-medium outline-none transition-all
-            focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100
-            ${!isOpen && selectedCategory ? 'text-slate-700' : 'text-slate-800'}
-            ${!isOpen && !selectedCategory ? 'placeholder-slate-400' : 'placeholder-slate-300'}
-            pr-8
-          `}
-        />
-        
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-          <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-[120] mt-1 w-full min-w-[180px] bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
-          <div 
-            ref={scrollContainerRef}
-            className="max-h-[200px] overflow-y-auto custom-scrollbar"
-          >
-            {allOptions.map((opt, idx) => {
-              const isSelected = value === (opt ? opt.id : null);
-              const isActive = idx === activeIndex;
-              
-              if (opt === null) {
-                return (
-                  <div 
-                    key="unallocated"
-                    onMouseDown={(e) => { e.preventDefault(); handleSelect(null); }}
-                    onMouseEnter={() => setActiveIndex(idx)}
-                    className={`px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest cursor-pointer transition-colors border-b border-slate-50 
-                      ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-400 hover:bg-slate-50'}
-                      ${isSelected ? 'bg-indigo-100/50' : ''}
-                    `}
-                  >
-                    Unallocated Pool
-                  </div>
-                );
-              }
-              
-              return (
-                <div 
-                  key={opt.id}
-                  onMouseDown={(e) => { e.preventDefault(); handleSelect(opt.id); }}
-                  onMouseEnter={() => setActiveIndex(idx)}
-                  className={`flex items-center gap-2 px-3 py-2 text-sm cursor-pointer transition-colors 
-                    ${isActive ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50'}
-                    ${isSelected ? 'bg-indigo-100/30' : ''}
-                  `}
-                >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${opt.color}`}></span>
-                  <span className="truncate">{opt.name}</span>
-                </div>
-              );
-            })}
-            
-            {allOptions.length === 0 && (
-              <div className="px-3 py-4 text-center text-xs text-slate-400 italic">No matches for &quot;{search}&quot;</div>
-            )}
-          </div>
+    <components.Option {...props}>
+      {data.isUnallocated ? (
+        <span className="text-[10px] font-bold uppercase tracking-widest">Unallocated Pool</span>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 shrink-0 rounded-full ${data.color ?? 'bg-slate-300'}`} />
+          <span className="truncate">{data.label}</span>
         </div>
       )}
+    </components.Option>
+  );
+};
+
+const selectStyles: StylesConfig<CategoryOption, false> = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 38,
+    borderRadius: 12,
+    borderColor: state.isFocused ? '#818cf8' : '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    boxShadow: state.isFocused ? '0 0 0 2px rgba(99, 102, 241, 0.12)' : 'none',
+    cursor: 'pointer',
+    '&:hover': {
+      borderColor: state.isFocused ? '#818cf8' : '#cbd5e1',
+    },
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: '0 10px',
+  }),
+  input: (base) => ({
+    ...base,
+    color: '#0f172a',
+    margin: 0,
+    padding: 0,
+  }),
+  singleValue: (base) => ({
+    ...base,
+    color: '#334155',
+    fontSize: 14,
+    fontWeight: 500,
+  }),
+  placeholder: (base) => ({
+    ...base,
+    color: '#94a3b8',
+    fontSize: 14,
+  }),
+  indicatorSeparator: () => ({ display: 'none' }),
+  dropdownIndicator: (base, state) => ({
+    ...base,
+    color: '#94a3b8',
+    padding: 6,
+    transform: state.selectProps.menuIsOpen ? 'rotate(180deg)' : 'none',
+    transition: 'transform 150ms ease',
+    '&:hover': {
+      color: '#64748b',
+    },
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 9999,
+  }),
+  menu: (base) => ({
+    ...base,
+    marginTop: 6,
+    borderRadius: 12,
+    border: '1px solid #e2e8f0',
+    boxShadow: '0 20px 40px rgba(15, 23, 42, 0.12)',
+    overflow: 'hidden',
+  }),
+  menuList: (base) => ({
+    ...base,
+    maxHeight: 220,
+    padding: 4,
+  }),
+  option: (base, state) => ({
+    ...base,
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontSize: state.data.isUnallocated ? 10 : 14,
+    fontWeight: state.data.isUnallocated ? 700 : 500,
+    textTransform: state.data.isUnallocated ? 'uppercase' : 'none',
+    letterSpacing: state.data.isUnallocated ? '0.08em' : 'normal',
+    backgroundColor: state.isFocused ? '#eef2ff' : state.isSelected ? '#e0e7ff' : '#ffffff',
+    color: state.data.isUnallocated ? '#475569' : '#334155',
+    padding: state.data.isUnallocated ? '9px 12px' : '8px 12px',
+    borderBottom: state.data.isUnallocated ? '1px solid #f1f5f9' : undefined,
+    '&:active': {
+      backgroundColor: '#e0e7ff',
+    },
+  }),
+};
+
+const SearchableSelect: React.FC<SearchableSelectProps> = ({
+  categories,
+  value,
+  onChange,
+  placeholder = 'Select category...',
+  className = '',
+}) => {
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalTarget(document.body);
+  }, []);
+
+  const options = useMemo<CategoryOption[]>(
+    () => [
+      { value: null, label: 'Unallocated Pool', isUnallocated: true },
+      ...categories.map((category) => ({
+        value: category.id,
+        label: category.name,
+        color: category.color,
+      })),
+    ],
+    [categories],
+  );
+
+  const selectedOption = useMemo(
+    () => options.find((option) => option.value === value) ?? null,
+    [options, value],
+  );
+
+  return (
+    <div className={className}>
+      <Select<CategoryOption, false>
+        options={options}
+        value={selectedOption}
+        onChange={(next) => onChange(next?.value ?? null)}
+        placeholder={placeholder}
+        isSearchable
+        styles={selectStyles}
+        components={{ Option: CustomOption }}
+        menuPortalTarget={portalTarget}
+        menuPosition={portalTarget ? 'fixed' : 'absolute'}
+        noOptionsMessage={({ inputValue }) => `No matches for "${inputValue}"`}
+      />
     </div>
   );
 };

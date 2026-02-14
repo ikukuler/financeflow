@@ -8,6 +8,7 @@ interface UnallocatedPoolProps {
   onDropTransaction: (txId: string) => void;
   onMove: (txId: string, categoryId: string | null) => void;
   onUpdateName: (txId: string, name: string) => void;
+  onUpdateAmount: (txId: string, amount: number) => void;
   onToggleSpent: (txId: string) => void;
   onRemove: (txId: string) => void;
 }
@@ -18,6 +19,7 @@ const UnallocatedPool: React.FC<UnallocatedPoolProps> = ({
   onDropTransaction,
   onMove,
   onUpdateName,
+  onUpdateAmount,
   onToggleSpent,
   onRemove,
 }) => {
@@ -53,6 +55,7 @@ const UnallocatedPool: React.FC<UnallocatedPoolProps> = ({
                 categories={categories}
                 onMove={onMove}
                 onUpdateName={onUpdateName}
+                onUpdateAmount={onUpdateAmount}
                 onToggleSpent={onToggleSpent}
                 onRemove={onRemove}
               />

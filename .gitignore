@@ -27,4 +27,4 @@ dist-ssr
 out
 
 *.tsbuildinfo
-SESSION_NOTES.md
+# SESSION_NOTES.md

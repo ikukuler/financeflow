@@ -71,4 +71,4 @@
 
 ## Suggested Next Steps
 - Implement items from `UI_UX_IMPROVEMENTS.md` in order, starting with critical mobile action visibility (no hover-only controls).
-- Add integration tests (auth + demo cleanup behavior) once UI stabilization is done.
+<!-- - Add integration tests (auth + demo cleanup behavior) once UI stabilization is done. -->

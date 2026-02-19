@@ -127,9 +127,9 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`
-        relative rounded-3xl p-6 min-h-[300px] transition-all duration-300 border-2
+        relative rounded-3xl p-5 sm:p-6 min-h-[300px] transition-all duration-300 border
         ${isOver ? 'scale-[1.02] ring-4 ring-indigo-200 shadow-xl' : 'shadow-sm'}
-        ${isOver ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-100'}
+        ${isOver ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-slate-200'}
       `}
     >
       <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[calc(1.5rem-2px)]">
@@ -138,8 +138,16 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
         </div>
       </div>
 
+      {isOver && (
+        <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center rounded-[calc(1.5rem-1px)] border-2 border-dashed border-indigo-400 bg-indigo-100/50">
+          <span className="rounded-full bg-white/90 px-4 py-2 text-xs font-bold uppercase tracking-wider text-indigo-700 shadow-sm">
+            Drop here to move
+          </span>
+        </div>
+      )}
+
       <div className="relative z-10">
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start mb-5">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <div className={`w-3 h-3 rounded-full ${category.color}`}></div>
@@ -147,7 +155,7 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
               <div className="flex items-center gap-1 ml-2">
                 <button 
                   onClick={() => setIsAdding(true)}
-                  className="w-6 h-6 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-indigo-600 hover:text-white rounded-full transition-all active:scale-90 cursor-pointer"
+                  className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-indigo-600 hover:text-white rounded-full transition-all active:scale-90 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                   title="Add expenses to this category"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,7 +165,7 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
                 {hasUnspent && (
                   <button 
                     onClick={() => onMarkAllSpent(category.id)}
-                    className="w-6 h-6 flex items-center justify-center bg-slate-100 text-slate-400 hover:bg-emerald-600 hover:text-white rounded-full transition-all active:scale-90 cursor-pointer"
+                    className="w-10 h-10 md:w-8 md:h-8 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-emerald-600 hover:text-white rounded-full transition-all active:scale-90 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                     title="Mark all as spent"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -167,29 +175,29 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
                 )}
               </div>
             </div>
-            <p className="text-sm text-slate-400 font-medium">Category Budget</p>
+            <p className="text-sm text-slate-500 font-medium">Category Budget</p>
           </div>
           <div className="text-right">
             <div className="flex flex-col items-end">
-              <span className="text-2xl font-black text-slate-800">
+              <span className="text-2xl font-black text-slate-800 tabular-nums">
                 {total.toLocaleString()} <small className="text-xs text-slate-400">MDL</small>
               </span>
               
-              <div className="flex flex-col items-end gap-0.5 mt-1">
+              <div className="flex flex-col items-end gap-1 mt-1">
                 {spentTotal > 0 && (
-                  <div className="flex items-center gap-1 text-slate-400">
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">Spent:</span>
-                    <span className="text-sm font-bold line-through decoration-slate-400 decoration-2">
-                      {spentTotal.toLocaleString()} <small className="text-[10px]">MDL</small>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <span className="text-[11px] font-semibold uppercase tracking-tight">Spent:</span>
+                    <span className="text-sm font-bold line-through decoration-slate-400 decoration-2 tabular-nums">
+                      {spentTotal.toLocaleString()} <small className="text-[11px]">MDL</small>
                     </span>
                   </div>
                 )}
                 
                 {total > 0 && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-tighter text-slate-400">Left:</span>
-                    <span className={`text-sm font-bold ${remainingToSpend > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>
-                      {remainingToSpend.toLocaleString()} <small className="text-[10px]">MDL</small>
+                    <span className="text-[11px] font-semibold uppercase tracking-tight text-slate-500">Left:</span>
+                    <span className={`text-sm font-bold tabular-nums ${remainingToSpend > 0 ? 'text-indigo-600' : 'text-slate-300'}`}>
+                      {remainingToSpend.toLocaleString()} <small className="text-[11px]">MDL</small>
                     </span>
                   </div>
                 )}
@@ -212,20 +220,20 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
                 className="w-full px-4 py-3 bg-slate-50 border-2 border-indigo-200 rounded-xl outline-none focus:border-indigo-500 transition-all font-mono text-sm shadow-inner resize-none"
               />
               <div className="mt-2 flex justify-between items-center">
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">
+                <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-tight">
                   Ctrl+Enter to save
                 </span>
                 <div className="flex gap-3">
                    <button 
                     type="button"
                     onClick={() => { setIsAdding(false); setAddValue(''); }}
-                    className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 cursor-pointer"
+                    className="text-[11px] font-bold text-slate-500 uppercase tracking-widest hover:text-slate-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                    >
                      Cancel
                    </button>
                    <button 
                     type="submit"
-                    className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800 cursor-pointer"
+                    className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-800 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded"
                    >
                      Add All
                    </button>
@@ -237,11 +245,18 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
 
         <div className="flex flex-wrap gap-3">
           {transactions.length === 0 && !isAdding ? (
-            <div className="w-full py-12 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-2xl">
+            <div className="w-full py-10 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl">
                <svg className="w-8 h-8 text-slate-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                </svg>
-               <p className="text-xs text-slate-300 font-medium uppercase tracking-wider">Drop amounts here</p>
+               <p className="text-sm text-slate-400 font-semibold uppercase tracking-wider">Drop amounts here</p>
+               <button
+                 type="button"
+                 onClick={() => setIsAdding(true)}
+                 className="mt-3 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-600 hover:border-indigo-300 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+               >
+                 Add expense
+               </button>
             </div>
           ) : (
             transactions.map(tx => (

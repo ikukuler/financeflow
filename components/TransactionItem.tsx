@@ -27,21 +27,44 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   const [localName, setLocalName] = useState(transaction.name);
   const [localAmount, setLocalAmount] = useState(transaction.amount.toString());
   const [isDropdownActive, setIsDropdownActive] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDragHandleArmed, setIsDragHandleArmed] = useState(false);
+  const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
 
   useEffect(() => {
     setLocalName(transaction.name);
     setLocalAmount(transaction.amount.toString());
   }, [transaction.name, transaction.amount]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const media = window.matchMedia('(pointer: coarse)');
+    const syncTouchState = () => setIsTouchDevice(media.matches);
+
+    syncTouchState();
+    media.addEventListener('change', syncTouchState);
+    return () => media.removeEventListener('change', syncTouchState);
+  }, []);
+
   const handleDragStart = (e: React.DragEvent) => {
+    if (!isDragHandleArmed) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('txId', transaction.id);
+    e.dataTransfer.effectAllowed = 'move';
     const target = e.target as HTMLElement;
     target.style.opacity = '0.4';
+    setIsDragging(true);
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
     const target = e.target as HTMLElement;
     target.style.opacity = '1';
+    setIsDragging(false);
+    setIsDragHandleArmed(false);
   };
 
   const handleBlur = () => {
@@ -82,44 +105,74 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
 
   return (
     <div 
-      draggable={!isEditingAmount && !isEditingName && !isDropdownActive}
+      draggable={!isTouchDevice && !isEditingAmount && !isEditingName && !isDropdownActive && isDragHandleArmed}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       // Apply higher z-index when editing name or when the dropdown is active to prevent clipping
-      className={`inline-flex flex-col border rounded-xl shadow-sm p-3 min-w-[140px] max-w-[200px] cursor-grab active:cursor-grabbing transition-all group relative
+      className={`inline-flex flex-col border rounded-xl shadow-sm p-3 min-w-[140px] max-w-[220px] transition-all group relative
         ${transaction.isSpent ? 'bg-slate-100 border-slate-200 opacity-60 grayscale' : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md'}
         ${(isEditingName || isEditingAmount || isDropdownActive) ? 'z-[100] ring-2 ring-indigo-100' : 'z-auto'}
+        ${isDragging ? 'scale-[1.02] shadow-xl ring-2 ring-indigo-200' : ''}
+        ${isTouchDevice ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}
       `}
     >
-      <div className="flex justify-between items-start mb-1">
-        {isEditingAmount ? (
-          <input
-            autoFocus
-            type="text"
-            inputMode="decimal"
-            value={localAmount}
-            onChange={(e) => setLocalAmount(e.target.value)}
-            onBlur={handleAmountBlur}
-            onKeyDown={handleAmountKeyDown}
-            className="w-20 text-sm font-bold bg-slate-50 border-b border-indigo-400 outline-none py-0.5 text-slate-700"
-          />
-        ) : (
+      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-1.5 mb-1">
+        <div className="min-w-0 flex items-start gap-1.5 w-full md:flex-1">
           <button
             type="button"
-            onClick={() => setIsEditingAmount(true)}
-            className={`text-left text-lg font-bold transition-colors cursor-pointer ${transaction.isSpent ? 'text-slate-400 line-through decoration-slate-400 decoration-2' : 'text-slate-800 hover:text-indigo-600'}`}
+            aria-label="Drag transaction"
+            title="Drag to move"
+            onMouseDown={() => setIsDragHandleArmed(true)}
+            onMouseUp={() => setIsDragHandleArmed(false)}
+            onMouseLeave={() => setIsDragHandleArmed(false)}
+            className={`hidden md:inline-flex w-8 h-8 items-center justify-center rounded-md cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+              isDragHandleArmed ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01" />
+            </svg>
+          </button>
+
+          {isEditingAmount ? (
+            <input
+              autoFocus
+              type="text"
+              inputMode="decimal"
+              value={localAmount}
+              onChange={(e) => setLocalAmount(e.target.value)}
+              onBlur={handleAmountBlur}
+              onKeyDown={handleAmountKeyDown}
+              className="w-20 text-sm font-bold bg-slate-50 border-b border-indigo-400 outline-none py-0.5 text-slate-700"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsEditingAmount(true)}
+            className={`min-w-0 text-left text-lg font-bold tabular-nums transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 rounded-md ${transaction.isSpent ? 'text-slate-400 line-through decoration-slate-400 decoration-2' : 'text-slate-800 hover:text-indigo-600'}`}
             title="Edit amount"
           >
             {transaction.amount.toLocaleString()}
-            <small className={`ml-1 text-[10px] ${transaction.isSpent ? 'text-slate-300' : 'text-slate-400'}`}>MDL</small>
+            <small className={`ml-1 text-[11px] ${transaction.isSpent ? 'text-slate-300' : 'text-slate-400'}`}>MDL</small>
           </button>
-        )}
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          )}
+        </div>
+        <div className="self-end md:self-auto shrink-0 flex gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
+          <button
+            type="button"
+            onClick={() => setIsMoveMenuOpen((prev) => !prev)}
+            title="Move to category"
+            className={`hidden md:inline-flex transition-colors w-8 h-8 items-center justify-center rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${isMoveMenuOpen ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-indigo-600'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h11M8 7l3-3M8 7l3 3M16 17H5M16 17l-3-3M16 17l-3 3" />
+            </svg>
+          </button>
           <button 
             type="button"
             onClick={() => onToggleSpent(transaction.id)}
             title={transaction.isSpent ? "Mark as planned" : "Mark as spent"}
-            className={`transition-colors p-1 rounded cursor-pointer ${transaction.isSpent ? 'text-indigo-600 hover:text-indigo-800' : 'text-slate-300 hover:text-emerald-500'}`}
+            className={`transition-colors w-10 h-10 md:w-8 md:h-8 inline-flex items-center justify-center rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${transaction.isSpent ? 'text-indigo-600 hover:text-indigo-800' : 'text-slate-400 hover:text-emerald-500'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -128,7 +181,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
           <button 
             type="button"
             onClick={() => onRemove(transaction.id)}
-            className="text-slate-300 hover:text-rose-500 transition-colors p-1 cursor-pointer"
+            className="text-slate-400 hover:text-rose-500 transition-colors w-10 h-10 md:w-8 md:h-8 inline-flex items-center justify-center rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -151,7 +204,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         ) : (
           <p 
             onClick={() => setIsEditingName(true)}
-            className={`text-xs font-medium line-clamp-2 min-h-[1.25rem] cursor-text transition-colors
+            className={`text-sm font-medium line-clamp-2 min-h-[1.25rem] cursor-text transition-colors
               ${transaction.isSpent ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-600 hover:text-indigo-600'}
             `}
           >
@@ -159,9 +212,9 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
           </p>
         )}
       </div>
-      
-      <div onFocus={() => setIsDropdownActive(true)} onBlur={() => setIsDropdownActive(false)}>
-        <SearchableSelect 
+
+      <div className="md:hidden" onFocus={() => setIsDropdownActive(true)} onBlur={() => setIsDropdownActive(false)}>
+        <SearchableSelect
           categories={categories}
           value={transaction.categoryId}
           onChange={(val) => onMove(transaction.id, val)}
@@ -169,6 +222,21 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
           className="mt-1"
         />
       </div>
+
+      {isMoveMenuOpen && (
+        <div className="hidden md:block" onFocus={() => setIsDropdownActive(true)} onBlur={() => setIsDropdownActive(false)}>
+          <SearchableSelect
+            categories={categories}
+            value={transaction.categoryId}
+            onChange={(val) => {
+              onMove(transaction.id, val);
+              setIsMoveMenuOpen(false);
+            }}
+            placeholder="Move to..."
+            className="mt-1"
+          />
+        </div>
+      )}
     </div>
   );
 };

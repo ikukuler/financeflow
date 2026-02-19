@@ -42,6 +42,7 @@ const PlannerSkeleton: React.FC = () => (
 );
 
 const DEMO_CLEANUP_AT_STORAGE_KEY = 'financeflow:demo_cleanup_at';
+const DND_TIP_DISMISSED_STORAGE_KEY = 'financeflow:dnd_tip_dismissed';
 
 interface PendingDeleteAction {
   type: 'transaction' | 'category';
@@ -53,7 +54,9 @@ const PlannerApp: React.FC = () => {
   const [isInitialBalanceModalOpen, setIsInitialBalanceModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<PendingDeleteAction | null>(null);
+  const [isDndTipVisible, setIsDndTipVisible] = useState(false);
   const lastErrorToastRef = useRef<string | null>(null);
+  const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const {
     user,
@@ -152,10 +155,14 @@ const PlannerApp: React.FC = () => {
       void (async () => {
         const success = await moveTransaction(txId, categoryId);
         if (!success) return;
-        toast.success('Transaction updated.');
+
+        if (isDndTipVisible) {
+          setIsDndTipVisible(false);
+          localStorage.setItem(DND_TIP_DISMISSED_STORAGE_KEY, '1');
+        }
       })();
     },
-    [moveTransaction],
+    [isDndTipVisible, moveTransaction],
   );
 
   const handleUpdateTransactionName = useCallback(
@@ -163,7 +170,6 @@ const PlannerApp: React.FC = () => {
       void (async () => {
         const success = await updateTransactionName(txId, name);
         if (!success) return;
-        toast.success('Transaction updated.');
       })();
     },
     [updateTransactionName],
@@ -174,7 +180,6 @@ const PlannerApp: React.FC = () => {
       void (async () => {
         const success = await updateTransactionAmount(txId, amount);
         if (!success) return;
-        toast.success('Transaction updated.');
       })();
     },
     [updateTransactionAmount],
@@ -342,6 +347,17 @@ const PlannerApp: React.FC = () => {
     };
   }, [getAccessToken, hasInitialLoadCompleted, isDemoUser, planId, reloadPlannerData]);
 
+  useEffect(() => {
+    if (!hasInitialLoadCompleted) return;
+    const dismissed = localStorage.getItem(DND_TIP_DISMISSED_STORAGE_KEY) === '1';
+    setIsDndTipVisible(!dismissed);
+  }, [hasInitialLoadCompleted]);
+
+  useEffect(() => {
+    if (!pendingDelete) return;
+    cancelDeleteButtonRef.current?.focus();
+  }, [pendingDelete]);
+
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
@@ -369,7 +385,7 @@ const PlannerApp: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen p-4 pb-28 md:p-8 md:pb-8 max-w-7xl mx-auto space-y-6">
       <Toaster position="top-right" richColors closeButton />
 
       {isDemoUser && (
@@ -403,6 +419,22 @@ const PlannerApp: React.FC = () => {
 
       {isLoading && (
         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">Loading planner data...</div>
+      )}
+
+      {isDndTipVisible && (
+        <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800 flex items-start justify-between gap-3">
+          <p className="font-medium">Tip: drag expenses between categories using the dotted handle.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setIsDndTipVisible(false);
+              localStorage.setItem(DND_TIP_DISMISSED_STORAGE_KEY, '1');
+            }}
+            className="shrink-0 rounded-lg border border-indigo-200 px-2 py-1 text-xs font-semibold hover:bg-indigo-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
 
       <AppHeader
@@ -446,12 +478,12 @@ const PlannerApp: React.FC = () => {
 
       <button
         onClick={() => setIsAddExpenseModalOpen(true)}
-        className="fixed bottom-8 right-8 w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-2xl shadow-indigo-400 hover:bg-indigo-700 hover:scale-110 active:scale-95 transition-all z-40 group cursor-pointer"
+        className="fixed bottom-5 right-5 md:bottom-8 md:right-8 w-[52px] h-[52px] md:w-16 md:h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-2xl shadow-indigo-400 hover:bg-indigo-700 md:hover:scale-110 active:scale-95 transition-all z-40 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 md:h-8 md:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
         </svg>
-        <span className="absolute right-20 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-widest">
+        <span className="absolute right-16 md:right-20 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-widest">
           Add Expense
         </span>
       </button>
@@ -483,14 +515,15 @@ const PlannerApp: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPendingDelete(null)}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                ref={cancelDeleteButtonRef}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={confirmDelete}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 cursor-pointer"
+                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1"
               >
                 Delete
               </button>

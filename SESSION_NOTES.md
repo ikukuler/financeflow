@@ -72,3 +72,51 @@
 ## Suggested Next Steps
 - Implement items from `UI_UX_IMPROVEMENTS.md` in order, starting with critical mobile action visibility (no hover-only controls).
 <!-- - Add integration tests (auth + demo cleanup behavior) once UI stabilization is done. -->
+
+---
+
+# Session Notes (2026-02-19)
+
+## Completed Today
+- Implemented major UI/UX pass from backlog and screenshot feedback:
+  - mobile-visible transaction actions (no hover-only discovery)
+  - larger touch targets and stronger focus-visible states
+  - reduced FAB overlap risk on mobile (`pb-28`, smaller mobile FAB)
+  - improved summary hierarchy with dominant `Remaining`
+  - compact responsive header/user controls
+  - reduced toast noise for frequent micro-updates
+- Improved categories toolbar scalability:
+  - horizontal chip scrolling in compact mode
+  - `Show all / Collapse categories` behavior
+  - overflow containment and truncation fixes for long category names
+- Added financial readability improvements:
+  - `tabular-nums` for key amounts in header/categories/transactions
+  - clearer negative-state microcopy: `Over budget by X MDL`
+  - neutralized `Total Spent` coloring to avoid misleading success semantics
+- Improved drag-and-drop affordance and feedback:
+  - explicit drag handle on desktop
+  - drag-only initiation from handle to avoid button/input conflicts
+  - stronger drag/drop visual states (`scale/ring/shadow` + drop overlays)
+  - onboarding tip banner for DnD with persistent dismissal (`localStorage`)
+- Reframed unallocated area as inbox pattern:
+  - `Inbox / Unallocated` labeling
+  - clearer empty-state guidance
+- Reworked transaction presentation into table-like row layout while preserving DnD:
+  - row-oriented transaction items
+  - desktop column headers (`Expense / Amount / Actions`) in categories and inbox
+  - mobile-safe fallback layout to prevent control overlap
+- Inbox-specific comment usability fix:
+  - always-visible comment input for inbox transactions (`forceNameInput`)
+  - prevented actions overflow in narrow columns by shifting desktop row mode to `lg` breakpoint
+
+## Important Notes
+- A dedicated implementation branch was used for table+DND refactor: `table-dnd-transactions`.
+- Branch has been merged by user.
+- Validation baseline for this session: `npm run lint` and `npm run typecheck` passed after final fixes.
+
+## Suggested Next Steps
+- Add integration tests for critical interaction flows:
+  - transaction move via drag handle (desktop)
+  - transaction move via select fallback (mobile/tablet breakpoints)
+  - inbox comment editing behavior (`forceNameInput`)
+- Optionally tighten column alignment at `lg+` for pixel-perfect header/row matching.

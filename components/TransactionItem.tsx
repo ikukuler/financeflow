@@ -1,12 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Transaction, Category } from '../types';
 import SearchableSelect from './SearchableSelect';
 
 interface TransactionItemProps {
+  dndId: string;
   transaction: Transaction;
   categories: Category[];
-  onMove: (txId: string, categoryId: string | null) => void;
+  onMove: (txId: string, categoryId: string | null, beforeTransactionId?: string | null, afterTransactionId?: string | null) => void;
   onUpdateName: (txId: string, name: string) => void;
   onUpdateAmount: (txId: string, amount: number) => void;
   onToggleSpent: (txId: string) => void;
@@ -15,6 +18,7 @@ interface TransactionItemProps {
 }
 
 const TransactionItem: React.FC<TransactionItemProps> = ({ 
+  dndId,
   transaction, 
   categories, 
   onMove, 
@@ -30,9 +34,8 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   const [localAmount, setLocalAmount] = useState(transaction.amount.toString());
   const [isDropdownActive, setIsDropdownActive] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isDragHandleArmed, setIsDragHandleArmed] = useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = useState(false);
+  const [isDragHandleActive, setIsDragHandleActive] = useState(false);
 
   useEffect(() => {
     setLocalName(transaction.name);
@@ -50,24 +53,18 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
     return () => media.removeEventListener('change', syncTouchState);
   }, []);
 
-  const handleDragStart = (e: React.DragEvent) => {
-    if (!isDragHandleArmed) {
-      e.preventDefault();
-      return;
-    }
-    e.dataTransfer.setData('txId', transaction.id);
-    e.dataTransfer.effectAllowed = 'move';
-    const target = e.target as HTMLElement;
-    target.style.opacity = '0.4';
-    setIsDragging(true);
-  };
-
-  const handleDragEnd = (e: React.DragEvent) => {
-    const target = e.target as HTMLElement;
-    target.style.opacity = '1';
-    setIsDragging(false);
-    setIsDragHandleArmed(false);
-  };
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: dndId,
+    disabled: isTouchDevice || isEditingAmount || isEditingName || isDropdownActive,
+  });
 
   const handleBlur = () => {
     setIsEditingName(false);
@@ -131,29 +128,31 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   );
 
   return (
-    <div 
-      draggable={!isTouchDevice && !isEditingAmount && !isEditingName && !isDropdownActive && isDragHandleArmed}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       // Apply higher z-index when editing name or when the dropdown is active to prevent clipping
       className={`w-full border rounded-xl shadow-sm p-3 transition-all group relative
         ${transaction.isSpent ? 'bg-slate-100 border-slate-200 opacity-60 grayscale' : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md'}
         ${(isEditingName || isEditingAmount || isDropdownActive) ? 'z-[100] ring-2 ring-indigo-100' : 'z-auto'}
         ${isDragging ? 'scale-[1.02] shadow-xl ring-2 ring-indigo-200' : ''}
-        ${isTouchDevice ? 'cursor-default' : 'cursor-default'}
+        cursor-default
       `}
     >
-      <div className="flex items-start lg:items-center gap-2">
-        <div className="hidden lg:flex shrink-0">
+      <div className="flex items-start md:items-center gap-2">
+        <div className="hidden md:flex shrink-0">
           <button
             type="button"
             aria-label="Drag transaction"
             title="Drag to move"
-            onMouseDown={() => setIsDragHandleArmed(true)}
-            onMouseUp={() => setIsDragHandleArmed(false)}
-            onMouseLeave={() => setIsDragHandleArmed(false)}
-            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-md cursor-grab active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-              isDragHandleArmed ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+            ref={setActivatorNodeRef}
+            {...attributes}
+            {...listeners}
+            onMouseDown={() => setIsDragHandleActive(true)}
+            onMouseUp={() => setIsDragHandleActive(false)}
+            onMouseLeave={() => setIsDragHandleActive(false)}
+            className={`hidden md:inline-flex w-8 h-8 items-center justify-center rounded-md cursor-grab active:cursor-grabbing [touch-action:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+              isDragHandleActive ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -163,7 +162,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2 lg:hidden mb-1">
+          <div className="flex items-start justify-between gap-2 md:hidden mb-1">
             {amountCell}
             <div className="shrink-0 flex gap-1">
               <button 
@@ -213,14 +212,14 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
           </div>
         </div>
 
-        <div className="hidden lg:flex w-28 justify-end shrink-0">{amountCell}</div>
+        <div className="hidden md:flex w-28 justify-end shrink-0">{amountCell}</div>
 
-        <div className="hidden lg:flex shrink-0 gap-1 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity">
+        <div className="hidden md:flex shrink-0 gap-1 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-opacity">
           <button
             type="button"
             onClick={() => setIsMoveMenuOpen((prev) => !prev)}
             title="Move to category"
-            className={`hidden lg:inline-flex transition-colors w-8 h-8 items-center justify-center rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${isMoveMenuOpen ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-indigo-600'}`}
+            className={`hidden md:inline-flex transition-colors w-8 h-8 items-center justify-center rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1 ${isMoveMenuOpen ? 'text-indigo-600 bg-indigo-50' : 'text-slate-400 hover:text-indigo-600'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h11M8 7l3-3M8 7l3 3M16 17H5M16 17l-3-3M16 17l-3 3" />
@@ -248,7 +247,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
         </div>
       </div>
 
-      <div className="lg:hidden" onFocus={() => setIsDropdownActive(true)} onBlur={() => setIsDropdownActive(false)}>
+      <div className="md:hidden" onFocus={() => setIsDropdownActive(true)} onBlur={() => setIsDropdownActive(false)}>
         <SearchableSelect
           categories={categories}
           value={transaction.categoryId}
@@ -259,7 +258,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
       </div>
 
       {isMoveMenuOpen && (
-        <div className="hidden lg:block" onFocus={() => setIsDropdownActive(true)} onBlur={() => setIsDropdownActive(false)}>
+        <div className="hidden md:block" onFocus={() => setIsDropdownActive(true)} onBlur={() => setIsDropdownActive(false)}>
           <SearchableSelect
             categories={categories}
             value={transaction.categoryId}
@@ -276,4 +275,4 @@ const TransactionItem: React.FC<TransactionItemProps> = ({
   );
 };
 
-export default TransactionItem;
+export default React.memo(TransactionItem);

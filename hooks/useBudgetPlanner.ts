@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createBrowserPlannerRepository } from '@/lib/supabase';
 import type { PlannerRepository } from '@/lib/planner/repository';
 import type { Category, Transaction } from '../types';
+import { rankBetween } from '@/lib/planner/rank-utils';
 
 const CATEGORY_COLORS = [
   'bg-red-500',
@@ -20,6 +21,26 @@ const CATEGORY_COLORS = [
 ];
 
 const randomCategoryColor = () => CATEGORY_COLORS[Math.floor(Math.random() * CATEGORY_COLORS.length)];
+
+const compareNullableCategory = (left: string | null, right: string | null) => {
+  if (left === right) return 0;
+  if (left === null) return -1;
+  if (right === null) return 1;
+  return left.localeCompare(right);
+};
+
+const sortTransactionsForUi = (items: Transaction[]): Transaction[] =>
+  items
+    .slice()
+    .sort((a, b) => {
+      const categoryCmp = compareNullableCategory(a.categoryId, b.categoryId);
+      if (categoryCmp !== 0) return categoryCmp;
+
+      const rankCmp = a.sortRank.localeCompare(b.sortRank);
+      if (rankCmp !== 0) return rankCmp;
+
+      return a.createdAt - b.createdAt;
+    });
 
 interface UseBudgetPlannerOptions {
   enabled?: boolean;
@@ -47,6 +68,11 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
   const [hasInitialLoadCompleted, setHasInitialLoadCompleted] = useState(false);
   const [error, setError] = useState<string | null>(initError);
 
+  const transactionsRef = useRef<Transaction[]>([]);
+  useEffect(() => {
+    transactionsRef.current = transactions;
+  }, [transactions]);
+
   const resetState = useCallback(() => {
     setPlanId(null);
     setCategories([]);
@@ -62,7 +88,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
       if (!repository) return;
       const snapshot = await repository.getSnapshot(targetPlanId);
       setCategories(snapshot.categories);
-      setTransactions(snapshot.transactions);
+      setTransactions(sortTransactionsForUi(snapshot.transactions));
       setInitialBalanceState(snapshot.initialBalance);
     },
     [repository],
@@ -186,7 +212,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
           isSpent: false,
         });
 
-        setTransactions((prev) => [...prev, created]);
+        setTransactions((prev) => sortTransactionsForUi([...prev, created]));
         return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add transaction');
@@ -214,7 +240,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
       try {
         setError(null);
         const updated = await repository.updateTransaction(txId, patch);
-        setTransactions((prev) => prev.map((tx) => (tx.id === txId ? updated : tx)));
+        setTransactions((prev) => sortTransactionsForUi(prev.map((tx) => (tx.id === txId ? updated : tx))));
         return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to update transaction');
@@ -226,10 +252,64 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
   );
 
   const moveTransaction = useCallback(
-    async (txId: string, categoryId: string | null) => {
-      return updateTransaction(txId, { categoryId });
+    async (
+      txId: string,
+      categoryId: string | null,
+      beforeTransactionId?: string | null,
+      afterTransactionId?: string | null,
+    ) => {
+      if (!enabled || !repository) return false;
+
+      const currentPlanId = requirePlanId();
+      const prevTransactions = transactionsRef.current;
+
+      // Optimistic update
+      setTransactions((prev) => {
+        const targetTx = prev.find((tx) => tx.id === txId);
+        if (!targetTx) return prev;
+
+        const filtered = prev.filter((tx) => tx.id !== txId);
+        
+        const columnTransactions = filtered
+          .filter((tx) => tx.categoryId === categoryId)
+          .sort((a, b) => a.sortRank.localeCompare(b.sortRank));
+
+        const beforeIdx = beforeTransactionId ? columnTransactions.findIndex(tx => tx.id === beforeTransactionId) : -1;
+        const afterIdx = afterTransactionId ? columnTransactions.findIndex(tx => tx.id === afterTransactionId) : -1;
+
+        const prevRank = afterIdx !== -1 ? columnTransactions[afterIdx].sortRank : null;
+        const nextRank = beforeIdx !== -1 ? columnTransactions[beforeIdx].sortRank : null;
+
+        const newRank = rankBetween(prevRank, nextRank);
+        
+        const updatedTx = { 
+          ...targetTx, 
+          categoryId,
+          sortRank: newRank,
+        };
+
+        const result = [...filtered, updatedTx];
+        return sortTransactionsForUi(result);
+      });
+
+      try {
+        setError(null);
+        const updated = await repository.moveTransaction({
+          transactionId: txId,
+          toCategoryId: categoryId,
+          beforeTransactionId: beforeTransactionId ?? null,
+          afterTransactionId: afterTransactionId ?? null,
+        });
+        setTransactions((prev) => sortTransactionsForUi(prev.map((tx) => (tx.id === txId ? updated : tx))));
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to move transaction');
+        setTransactions(prevTransactions);
+        await reloadSnapshot(currentPlanId);
+        return false;
+      }
     },
-    [updateTransaction],
+    [enabled, reloadSnapshot, repository, requirePlanId],
   );
 
   const updateTransactionName = useCallback(
@@ -248,7 +328,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
 
   const toggleTransactionSpent = useCallback(
     async (txId: string) => {
-      const tx = transactions.find((item) => item.id === txId);
+      const tx = transactionsRef.current.find((item) => item.id === txId);
       if (!tx) return false;
 
       return updateTransaction(txId, {
@@ -256,12 +336,12 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
         spentAt: !tx.isSpent ? new Date().toISOString() : null,
       });
     },
-    [transactions, updateTransaction],
+    [updateTransaction],
   );
 
   const markCategorySpent = useCallback(
     async (categoryId: string) => {
-      const target = transactions.filter((tx) => tx.categoryId === categoryId && !tx.isSpent);
+      const target = transactionsRef.current.filter((tx) => tx.categoryId === categoryId && !tx.isSpent);
       if (target.length === 0) return true;
 
       for (const tx of target) {
@@ -271,14 +351,14 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
 
       return true;
     },
-    [transactions, updateTransaction],
+    [updateTransaction],
   );
 
   const removeTransaction = useCallback(
     async (txId: string) => {
       if (!repository) return false;
 
-      const prev = transactions;
+      const prev = transactionsRef.current;
       setTransactions((current) => current.filter((tx) => tx.id !== txId));
 
       try {
@@ -291,7 +371,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
         return false;
       }
     },
-    [repository, transactions],
+    [repository],
   );
 
   const addCategory = useCallback(
@@ -328,7 +408,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
       const prevTransactions = transactions;
 
       setCategories((prev) => prev.filter((category) => category.id !== id));
-      setTransactions((prev) => prev.map((tx) => (tx.categoryId === id ? { ...tx, categoryId: null } : tx)));
+      setTransactions((prev) => prev.filter((tx) => tx.categoryId !== id));
 
       try {
         setError(null);
@@ -358,6 +438,12 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
 
   const remainingBalance = initialBalance - totalAllocated;
 
+  const updateTransactionOptimistically = useCallback((txId: string, patch: Partial<Transaction>) => {
+    setTransactions((prev) => 
+      sortTransactionsForUi(prev.map((tx) => (tx.id === txId ? { ...tx, ...patch } : tx)))
+    );
+  }, []);
+
   return {
     planId,
     categories,
@@ -367,6 +453,7 @@ export const useBudgetPlanner = ({ enabled = true }: UseBudgetPlannerOptions = {
     cleanupDemoData,
     addTransaction,
     moveTransaction,
+    updateTransactionOptimistically,
     updateTransactionName,
     updateTransactionAmount,
     toggleTransactionSpent,

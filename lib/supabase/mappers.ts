@@ -4,7 +4,7 @@ import type { Database } from './database.types';
 type CategoryRow = Pick<Database['public']['Tables']['categories']['Row'], 'id' | 'name' | 'color'>;
 type TransactionRow = Pick<
   Database['public']['Tables']['transactions']['Row'],
-  'id' | 'amount_mdl' | 'title' | 'category_id' | 'created_at' | 'is_spent'
+  'id' | 'amount_mdl' | 'title' | 'category_id' | 'created_at' | 'is_spent' | 'sort_rank' | 'direction'
 >;
 
 export const mapCategoryRowToModel = (row: CategoryRow): Category => ({
@@ -20,4 +20,6 @@ export const mapTransactionRowToModel = (row: TransactionRow): Transaction => ({
   categoryId: row.category_id,
   createdAt: new Date(row.created_at).getTime(),
   isSpent: row.is_spent,
+  sortRank: row.sort_rank,
+  direction: row.direction,
 });

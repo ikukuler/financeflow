@@ -12,4 +12,6 @@ export interface Transaction {
   categoryId: string | null; // null means it's in the "Uncategorized" pool
   createdAt: number;
   isSpent: boolean;
+  sortRank: string;
+  direction: 'expense' | 'income';
 }

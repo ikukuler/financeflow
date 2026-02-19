@@ -10,6 +10,8 @@ export type Database = {
           name: string;
           base_currency: 'MDL' | 'USD' | 'EUR';
           initial_balance: string;
+          period_start: string;
+          period_end: string;
           created_at: string;
           updated_at: string;
         };
@@ -19,6 +21,8 @@ export type Database = {
           name?: string;
           base_currency?: 'MDL' | 'USD' | 'EUR';
           initial_balance?: string | number;
+          period_start?: string;
+          period_end?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -28,6 +32,8 @@ export type Database = {
           name?: string;
           base_currency?: 'MDL' | 'USD' | 'EUR';
           initial_balance?: string | number;
+          period_start?: string;
+          period_end?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -78,6 +84,8 @@ export type Database = {
           source_currency: 'MDL' | 'USD' | 'EUR' | null;
           source_amount: string | null;
           fx_rate: string | null;
+          sort_rank: string;
+          direction: 'expense' | 'income';
           created_at: string;
           updated_at: string;
         };
@@ -92,6 +100,8 @@ export type Database = {
           source_currency?: 'MDL' | 'USD' | 'EUR' | null;
           source_amount?: string | number | null;
           fx_rate?: string | number | null;
+          sort_rank?: string;
+          direction?: 'expense' | 'income';
           created_at?: string;
           updated_at?: string;
         };
@@ -106,6 +116,8 @@ export type Database = {
           source_currency?: 'MDL' | 'USD' | 'EUR' | null;
           source_amount?: string | number | null;
           fx_rate?: string | number | null;
+          sort_rank?: string;
+          direction?: 'expense' | 'income';
           created_at?: string;
           updated_at?: string;
         };

@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Category, Transaction } from '../../types';
 import TransactionItem from '../TransactionItem';
 
 interface UnallocatedPoolProps {
+  dndId: string;
   transactions: Transaction[];
   categories: Category[];
-  onDropTransaction: (txId: string) => void;
-  onMove: (txId: string, categoryId: string | null) => void;
+  onMove: (txId: string, categoryId: string | null, beforeTransactionId?: string | null, afterTransactionId?: string | null) => void;
   onUpdateName: (txId: string, name: string) => void;
   onUpdateAmount: (txId: string, amount: number) => void;
   onToggleSpent: (txId: string) => void;
@@ -14,29 +16,28 @@ interface UnallocatedPoolProps {
 }
 
 const UnallocatedPool: React.FC<UnallocatedPoolProps> = ({
+  dndId,
   transactions,
   categories,
-  onDropTransaction,
   onMove,
   onUpdateName,
   onUpdateAmount,
   onToggleSpent,
   onRemove,
 }) => {
-  const [isOver, setIsOver] = useState(false);
+  const [isOverByNative, setIsOverByNative] = useState(false);
+  const { setNodeRef, isOver: isOverByDndKit } = useDroppable({ id: dndId });
+  const isOver = isOverByDndKit || isOverByNative;
+
+  const sortableIds = useMemo(() => transactions.map((tx) => `tx:${tx.id}`), [transactions]);
 
   return (
-    <aside className="lg:col-span-3 space-y-6 lg:sticky lg:top-8 order-2 lg:order-1">
+    <aside className="space-y-6 xl:sticky xl:top-5">
       <div
+        ref={setNodeRef}
         className={`relative p-6 rounded-3xl border-2 border-dashed min-h-[400px] transition-all ${isOver ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-100' : 'bg-slate-100 border-slate-200'}`}
-        onDragOver={(e) => e.preventDefault()}
-        onDragEnter={() => setIsOver(true)}
-        onDragLeave={() => setIsOver(false)}
-        onDrop={(e) => {
-          setIsOver(false);
-          const txId = e.dataTransfer.getData('txId');
-          onDropTransaction(txId);
-        }}
+        onDragEnter={() => setIsOverByNative(true)}
+        onDragLeave={() => setIsOverByNative(false)}
       >
         {isOver && (
           <div className="absolute inset-4 z-10 pointer-events-none flex items-center justify-center rounded-2xl border-2 border-dashed border-indigo-400 bg-indigo-100/70">
@@ -67,19 +68,22 @@ const UnallocatedPool: React.FC<UnallocatedPoolProps> = ({
               <span className="text-right">Amount</span>
               <span className="text-right">Actions</span>
             </div>
-            {transactions.map((tx) => (
-              <TransactionItem
-                key={tx.id}
-                transaction={tx}
-                categories={categories}
-                onMove={onMove}
-                onUpdateName={onUpdateName}
-                onUpdateAmount={onUpdateAmount}
-                onToggleSpent={onToggleSpent}
-                onRemove={onRemove}
-                forceNameInput
-              />
-            ))}
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              {transactions.map((tx) => (
+                <TransactionItem
+                  key={tx.id}
+                  dndId={`tx:${tx.id}`}
+                  transaction={tx}
+                  categories={categories}
+                  onMove={onMove}
+                  onUpdateName={onUpdateName}
+                  onUpdateAmount={onUpdateAmount}
+                  onToggleSpent={onToggleSpent}
+                  onRemove={onRemove}
+                  forceNameInput
+                />
+              ))}
+            </SortableContext>
           </div>
         )}
       </div>
@@ -87,4 +91,4 @@ const UnallocatedPool: React.FC<UnallocatedPoolProps> = ({
   );
 };
 
-export default UnallocatedPool;
+export default React.memo(UnallocatedPool);

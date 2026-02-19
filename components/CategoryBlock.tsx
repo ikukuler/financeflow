@@ -1,13 +1,16 @@
 
 import React, { useState, useMemo, useRef } from 'react';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Category, Transaction } from '../types';
 import TransactionItem from './TransactionItem';
 
 interface CategoryBlockProps {
+  dndId: string;
   category: Category;
   transactions: Transaction[];
   categories: Category[];
-  onMove: (txId: string, categoryId: string | null) => void;
+  onMove: (txId: string, categoryId: string | null, beforeTransactionId?: string | null, afterTransactionId?: string | null) => void;
   onUpdateName: (txId: string, name: string) => void;
   onUpdateAmount: (txId: string, amount: number) => void;
   onToggleSpent: (txId: string) => void;
@@ -22,6 +25,7 @@ const RATES = {
 };
 
 const CategoryBlock: React.FC<CategoryBlockProps> = ({ 
+  dndId,
   category, 
   transactions, 
   categories, 
@@ -33,10 +37,10 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
   onRemove,
   onAdd
 }) => {
-  const [isOver, setIsOver] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [addValue, setAddValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { setNodeRef, isOver } = useDroppable({ id: dndId });
 
   const total = useMemo(() => 
     transactions.reduce((acc, tx) => acc + tx.amount, 0),
@@ -58,23 +62,7 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
     [transactions]
   );
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsOver(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsOver(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsOver(false);
-    const txId = e.dataTransfer.getData('txId');
-    if (txId) {
-      onMove(txId, category.id);
-    }
-  };
+  const sortableIds = useMemo(() => transactions.map((tx) => `tx:${tx.id}`), [transactions]);
 
   const parseToMDL = (text: string): number | null => {
     const raw = text.toLowerCase().trim();
@@ -122,10 +110,8 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
   };
 
   return (
-    <div 
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+    <div
+      ref={setNodeRef}
       className={`
         relative rounded-3xl p-5 sm:p-6 min-h-[300px] transition-all duration-300 border
         ${isOver ? 'scale-[1.02] ring-4 ring-indigo-200 shadow-xl' : 'shadow-sm'}
@@ -266,18 +252,21 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
                </button>
             </div>
           ) : (
-            transactions.map(tx => (
-              <TransactionItem 
-                key={tx.id} 
-                transaction={tx} 
-                categories={categories}
-                onMove={onMove}
-                onUpdateName={onUpdateName}
-                onUpdateAmount={onUpdateAmount}
-                onToggleSpent={onToggleSpent}
-                onRemove={onRemove}
-              />
-            ))
+            <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+              {transactions.map((tx) => (
+                <TransactionItem
+                  key={tx.id}
+                  dndId={`tx:${tx.id}`}
+                  transaction={tx}
+                  categories={categories}
+                  onMove={onMove}
+                  onUpdateName={onUpdateName}
+                  onUpdateAmount={onUpdateAmount}
+                  onToggleSpent={onToggleSpent}
+                  onRemove={onRemove}
+                />
+              ))}
+            </SortableContext>
           )}
         </div>
       </div>
@@ -285,4 +274,4 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
   );
 };
 
-export default CategoryBlock;
+export default React.memo(CategoryBlock);

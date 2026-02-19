@@ -92,4 +92,4 @@ const CategoryToolbar: React.FC<CategoryToolbarProps> = ({
   );
 };
 
-export default CategoryToolbar;
+export default React.memo(CategoryToolbar);

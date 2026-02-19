@@ -3,8 +3,17 @@ import type { Category, Transaction } from '@/types';
 export interface PlannerSnapshot {
   planId: string;
   initialBalance: number;
+  periodStart: string;
+  periodEnd: string;
   categories: Category[];
   transactions: Transaction[];
+}
+
+export interface PlannerBoard {
+  id: string;
+  initialBalance: number;
+  periodStart: string;
+  periodEnd: string;
 }
 
 export interface CreateCategoryInput {
@@ -31,10 +40,26 @@ export interface UpdateTransactionInput {
   amount?: number;
   isSpent?: boolean;
   spentAt?: string | null;
+  sortRank?: string;
+  direction?: 'expense' | 'income';
+}
+
+export interface MoveTransactionInput {
+  transactionId: string;
+  toCategoryId: string | null;
+  beforeTransactionId?: string | null;
+  afterTransactionId?: string | null;
+}
+
+export interface ReorderTransactionInput {
+  transactionId: string;
+  categoryId: string | null;
+  beforeTransactionId?: string | null;
+  afterTransactionId?: string | null;
 }
 
 export interface PlannerRepository {
-  getOrCreateDefaultPlan(): Promise<{ id: string; initialBalance: number }>;
+  getOrCreateDefaultPlan(): Promise<PlannerBoard>;
   getSnapshot(planId: string): Promise<PlannerSnapshot>;
   cleanupDemoData(keepPlanId: string): Promise<void>;
   updateInitialBalance(planId: string, initialBalance: number): Promise<void>;
@@ -42,5 +67,7 @@ export interface PlannerRepository {
   deleteCategory(categoryId: string): Promise<void>;
   createTransaction(input: CreateTransactionInput): Promise<Transaction>;
   updateTransaction(transactionId: string, patch: UpdateTransactionInput): Promise<Transaction>;
+  moveTransaction(input: MoveTransactionInput): Promise<Transaction>;
+  reorderTransaction(input: ReorderTransactionInput): Promise<Transaction>;
   deleteTransaction(transactionId: string): Promise<void>;
 }

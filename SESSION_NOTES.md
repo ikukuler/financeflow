@@ -115,8 +115,65 @@
 - Validation baseline for this session: `npm run lint` and `npm run typecheck` passed after final fixes.
 
 ## Suggested Next Steps
-- Add integration tests for critical interaction flows:
-  - transaction move via drag handle (desktop)
-  - transaction move via select fallback (mobile/tablet breakpoints)
-  - inbox comment editing behavior (`forceNameInput`)
-- Optionally tighten column alignment at `lg+` for pixel-perfect header/row matching.
+- For Kanban rework kickoff, start from `KANBAN_REWORK_SPEC.md` (source of truth for Phase 1 scope and migration plan).
+
+## Update (2026-02-19, later session)
+- Started Kanban Phase 1 implementation (DB + repository + UI shell):
+  - Added migration: `supabase/migrations/20260219_000002_kanban_phase1.sql`
+    - `budget_plans.period_start`, `budget_plans.period_end`
+    - `transactions.sort_rank`, `transactions.direction`
+    - `transactions.category_id` FK switched to `ON DELETE CASCADE`
+  - Added rank normalization migration: `supabase/migrations/20260219_000003_normalize_sort_rank.sql`
+    - canonical 18-digit rank format
+    - default + constraint guard for `sort_rank`
+- Extended planner/repository model for Kanban data:
+  - `periodStart`/`periodEnd` in snapshot/plan result
+  - `sortRank`/`direction` on transaction model
+  - move/reorder repository methods for DnD
+- Updated Supabase mapping/types to include new columns:
+  - `lib/supabase/database.types.ts`
+  - `lib/supabase/mappers.ts`
+  - `lib/supabase/planner-repository.ts`
+- Updated hook behavior:
+  - `moveTransaction` now supports positional anchors (`beforeTransactionId` / `afterTransactionId`)
+  - category delete optimistic logic aligned with cascade semantics
+- Added UI shell changes for Kanban workflow:
+  - full-width board layout with compact paddings
+  - board layout modes: `scroll` / `wrap`
+  - mobile bottom tab bar: `Board / Add / Settings`
+  - new settings panel with category create/delete:
+    - `components/sections/SettingsPanel.tsx`
+- Replaced native drag logic with `dnd-kit` integration:
+  - `DndContext` + sortable items/columns
+  - drag handle-based interaction
+  - `DragOverlay`
+- Fixed DnD persistence/reorder issues:
+  - deterministic `onDragEnd` path for same-column reorder and cross-column move
+  - cross-column move rule: append to end of target column
+  - removed unstable `onDragOver` optimistic category mutation
+  - removed render-time ref hacks that caused lint errors and unstable behavior
+- Performance tuning pass:
+  - reduced pointer activation distance
+  - disabled `autoScroll` in `DndContext`
+  - memoized heavy board sections (`CategoryBlock`, `CategoriesGrid`, `UnallocatedPool`)
+  - applied `touch-action: none` to drag handle
+- Validation status for this session:
+  - `npm run lint` passed after fixes
+  - `npm run typecheck` passed after fixes
+
+## Kanban Spec: Remaining Work (after 2026-02-19 session)
+- Board periods are not yet exposed as full UI flows:
+  - no explicit create/select/manage board period UX (`period_start`/`period_end` are in DB/repository, but not fully productized in UI)
+- Navigation shell is only partially aligned:
+  - Board/Add/Settings are usable
+  - Insights is not implemented (left for next phase)
+- Test scope from spec is still pending:
+  - repository tests for move/reorder and cascade delete behavior
+  - UI integration tests for desktop DnD, mobile select move, same-column reorder
+- DnD performance/UX still needs final stabilization pass:
+  - occasional drag-start lag/freeze reported by user under real usage
+  
+  ## Out of Scope (Phase 2)
+- `safe daily`, `burn rate`, projections
+- recurring/automation
+- advanced insights and goals

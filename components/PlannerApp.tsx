@@ -1,6 +1,18 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { Toaster, toast } from 'sonner';
 import AuthScreen from './AuthScreen';
 import InitialBalanceModal from './InitialBalanceModal';
@@ -8,13 +20,14 @@ import AddExpenseModal from './modals/AddExpenseModal';
 import AppHeader from './sections/AppHeader';
 import CategoriesGrid from './sections/CategoriesGrid';
 import CategoryToolbar from './sections/CategoryToolbar';
+import SettingsPanel from './sections/SettingsPanel';
 import UnallocatedPool from './sections/UnallocatedPool';
 import { useBudgetPlanner } from '../hooks/useBudgetPlanner';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import { DEMO_CLEANUP_MINUTES, isDemoUserEmail } from '@/lib/demo-config';
 
 const PlannerSkeleton: React.FC = () => (
-  <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-6 animate-pulse">
+  <div className="min-h-screen px-3 sm:px-4 lg:px-5 py-4 md:py-6 space-y-6 animate-pulse">
     <div className="rounded-3xl border border-slate-200 bg-white p-6">
       <div className="h-8 w-56 rounded bg-slate-200" />
       <div className="mt-3 h-4 w-40 rounded bg-slate-100" />
@@ -50,11 +63,25 @@ interface PendingDeleteAction {
   label: string;
 }
 
+const DND_TX_PREFIX = 'tx:';
+const DND_COL_PREFIX = 'col:';
+
+const colDndId = (categoryId: string | null) => `${DND_COL_PREFIX}${categoryId ?? 'inbox'}`;
+const parseTxId = (id: string) => (id.startsWith(DND_TX_PREFIX) ? id.slice(DND_TX_PREFIX.length) : null);
+const parseColId = (id: string): string | null | undefined => {
+  if (!id.startsWith(DND_COL_PREFIX)) return undefined;
+  const raw = id.slice(DND_COL_PREFIX.length);
+  return raw === 'inbox' ? null : raw;
+};
+
 const PlannerApp: React.FC = () => {
   const [isInitialBalanceModalOpen, setIsInitialBalanceModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'board' | 'settings'>('board');
+  const [columnsLayout, setColumnsLayout] = useState<'scroll' | 'wrap'>('scroll');
   const [pendingDelete, setPendingDelete] = useState<PendingDeleteAction | null>(null);
   const [isDndTipVisible, setIsDndTipVisible] = useState(false);
+  const [activeDragTxId, setActiveDragTxId] = useState<string | null>(null);
   const lastErrorToastRef = useRef<string | null>(null);
   const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -96,6 +123,14 @@ const PlannerApp: React.FC = () => {
     clearError,
     reloadPlannerData,
   } = useBudgetPlanner({ enabled: !!user });
+
+  // Use refs to keep handlers stable even when transactions/categories change
+  const transactionsRef = useRef(transactions);
+  const categoriesRef = useRef(categories);
+  useEffect(() => {
+    transactionsRef.current = transactions;
+    categoriesRef.current = categories;
+  }, [transactions, categories]);
 
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const isDemoUser = isDemoUserEmail(user?.email);
@@ -151,9 +186,9 @@ const PlannerApp: React.FC = () => {
   );
 
   const handleMoveTransaction = useCallback(
-    (txId: string, categoryId: string | null) => {
+    (txId: string, categoryId: string | null, beforeTransactionId?: string | null, afterTransactionId?: string | null) => {
       void (async () => {
-        const success = await moveTransaction(txId, categoryId);
+        const success = await moveTransaction(txId, categoryId, beforeTransactionId, afterTransactionId);
         if (!success) return;
 
         if (isDndTipVisible) {
@@ -163,6 +198,88 @@ const PlannerApp: React.FC = () => {
       })();
     },
     [isDndTipVisible, moveTransaction],
+  );
+
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 2 } });
+  const keyboardSensor = useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates });
+  const memoizedSensors = useSensors(pointerSensor, keyboardSensor);
+
+  const activeDragTx = useMemo(
+    () => transactions.find((tx) => tx.id === activeDragTxId) ?? null,
+    [transactions, activeDragTxId]
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    const id = String(event.active.id);
+    const parsed = parseTxId(id);
+    if (!parsed) return;
+    setActiveDragTxId(parsed);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveDragTxId(null);
+
+      if (!over) return;
+
+      const activeId = parseTxId(String(active.id));
+      const overId = String(over.id);
+
+      if (!activeId) return;
+
+      const overTxId = parseTxId(overId);
+      const overColId = parseColId(overId);
+
+      const activeTx = transactionsRef.current.find((t) => t.id === activeId);
+      if (!activeTx) return;
+
+      let targetCategoryId: string | null = activeTx.categoryId;
+      if (overColId !== undefined) {
+        targetCategoryId = overColId;
+      } else if (overTxId) {
+        const overTx = transactionsRef.current.find((t) => t.id === overTxId);
+        if (overTx) targetCategoryId = overTx.categoryId;
+      }
+
+      const sameColumn = activeTx.categoryId === targetCategoryId;
+      const targetColumn = transactionsRef.current
+        .filter((t) => t.categoryId === targetCategoryId)
+        .sort((a, b) => a.sortRank.localeCompare(b.sortRank));
+
+      if (overTxId) {
+        const overIndex = targetColumn.findIndex((t) => t.id === overTxId);
+        if (overIndex < 0) return;
+
+        if (sameColumn) {
+          const oldIndex = targetColumn.findIndex((t) => t.id === activeId);
+          if (oldIndex < 0 || oldIndex === overIndex) return;
+
+          const reordered = arrayMove(targetColumn, oldIndex, overIndex);
+          const newIndex = reordered.findIndex((t) => t.id === activeId);
+          const afterTxId = newIndex > 0 ? reordered[newIndex - 1].id : null;
+          const beforeTxId = newIndex < reordered.length - 1 ? reordered[newIndex + 1].id : null;
+          handleMoveTransaction(activeId, targetCategoryId, beforeTxId, afterTxId);
+          return;
+        }
+
+        // Cross-column move rule: always append to the end of target column.
+        const targetWithoutActive = targetColumn.filter((t) => t.id !== activeId);
+        const afterTxId = targetWithoutActive.length > 0 ? targetWithoutActive[targetWithoutActive.length - 1].id : null;
+        handleMoveTransaction(activeId, targetCategoryId, null, afterTxId);
+        return;
+      }
+
+      const targetWithoutActive = targetColumn.filter((t) => t.id !== activeId);
+      if (sameColumn) {
+        // If we dropped over the same column container (not a specific item),
+        // treat it as no-op to avoid accidental "jump to end" on imprecise collisions.
+        return;
+      }
+      const afterTxId = targetWithoutActive.length > 0 ? targetWithoutActive[targetWithoutActive.length - 1].id : null;
+      handleMoveTransaction(activeId, targetCategoryId, null, afterTxId);
+    },
+    [handleMoveTransaction], // Removed transactions dependency
   );
 
   const handleUpdateTransactionName = useCallback(
@@ -187,7 +304,7 @@ const PlannerApp: React.FC = () => {
 
   const handleToggleTransactionSpent = useCallback(
     (txId: string) => {
-      const tx = transactions.find((item) => item.id === txId);
+      const tx = transactionsRef.current.find((item) => item.id === txId);
       if (!tx) return;
 
       void (async () => {
@@ -196,12 +313,12 @@ const PlannerApp: React.FC = () => {
         toast.success(tx.isSpent ? 'Transaction marked as planned.' : 'Transaction marked as spent.');
       })();
     },
-    [toggleTransactionSpent, transactions],
+    [toggleTransactionSpent],
   );
 
   const handleMarkCategorySpent = useCallback(
     (categoryId: string) => {
-      const unspentCount = transactions.filter((tx) => tx.categoryId === categoryId && !tx.isSpent).length;
+      const unspentCount = transactionsRef.current.filter((tx) => tx.categoryId === categoryId && !tx.isSpent).length;
       if (unspentCount === 0) return;
 
       void (async () => {
@@ -210,12 +327,12 @@ const PlannerApp: React.FC = () => {
         toast.success('Category transactions updated.');
       })();
     },
-    [markCategorySpent, transactions],
+    [markCategorySpent],
   );
 
   const requestDeleteTransaction = useCallback(
     (txId: string) => {
-      const tx = transactions.find((item) => item.id === txId);
+      const tx = transactionsRef.current.find((item) => item.id === txId);
       if (!tx) return;
 
       setPendingDelete({
@@ -224,12 +341,12 @@ const PlannerApp: React.FC = () => {
         label: tx.name.trim() || `${tx.amount.toLocaleString()} MDL`,
       });
     },
-    [transactions],
+    [],
   );
 
   const requestDeleteCategory = useCallback(
     (categoryId: string) => {
-      const category = categories.find((item) => item.id === categoryId);
+      const category = categoriesRef.current.find((item) => item.id === categoryId);
       if (!category) return;
 
       setPendingDelete({
@@ -238,7 +355,7 @@ const PlannerApp: React.FC = () => {
         label: category.name,
       });
     },
-    [categories],
+    [],
   );
 
   const confirmDelete = useCallback(() => {
@@ -385,7 +502,7 @@ const PlannerApp: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen p-4 pb-28 md:p-8 md:pb-8 max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen px-3 sm:px-4 lg:px-5 py-4 md:py-6 pb-28 md:pb-8 space-y-5">
       <Toaster position="top-right" richColors closeButton />
 
       {isDemoUser && (
@@ -449,36 +566,112 @@ const PlannerApp: React.FC = () => {
         }}
       />
 
-      <CategoryToolbar categories={categories} onAddCategory={handleAddCategory} onDeleteCategory={requestDeleteCategory} />
+      <div className="rounded-2xl border border-slate-200 bg-white p-2 hidden md:flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('board')}
+            className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+              activeTab === 'board' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Board
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('settings')}
+            className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+              activeTab === 'settings' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Settings
+          </button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <UnallocatedPool
-          transactions={uncategorizedTransactions}
-          categories={categories}
-          onDropTransaction={(txId) => handleMoveTransaction(txId, null)}
-          onMove={handleMoveTransaction}
-          onUpdateName={handleUpdateTransactionName}
-          onUpdateAmount={handleUpdateTransactionAmount}
-          onToggleSpent={handleToggleTransactionSpent}
-          onRemove={requestDeleteTransaction}
-        />
-
-        <CategoriesGrid
-          categories={categories}
-          transactions={transactions}
-          onMove={handleMoveTransaction}
-          onUpdateName={handleUpdateTransactionName}
-          onUpdateAmount={handleUpdateTransactionAmount}
-          onToggleSpent={handleToggleTransactionSpent}
-          onMarkAllSpent={handleMarkCategorySpent}
-          onRemove={requestDeleteTransaction}
-          onAddTransaction={handleAddTransaction}
-        />
+        {activeTab === 'board' && (
+          <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => setColumnsLayout('scroll')}
+              className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                columnsLayout === 'scroll' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Scroll
+            </button>
+            <button
+              type="button"
+              onClick={() => setColumnsLayout('wrap')}
+              className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+                columnsLayout === 'wrap' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Wrap
+            </button>
+          </div>
+        )}
       </div>
+
+      {activeTab === 'board' ? (
+        <>
+          <CategoryToolbar categories={categories} onAddCategory={handleAddCategory} onDeleteCategory={requestDeleteCategory} />
+
+          <DndContext
+            sensors={memoizedSensors}
+            collisionDetection={closestCenter}
+            autoScroll={false}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-5 items-start">
+              <UnallocatedPool
+                dndId={colDndId(null)}
+                transactions={uncategorizedTransactions}
+                categories={categories}
+                onMove={handleMoveTransaction}
+                onUpdateName={handleUpdateTransactionName}
+                onUpdateAmount={handleUpdateTransactionAmount}
+                onToggleSpent={handleToggleTransactionSpent}
+                onRemove={requestDeleteTransaction}
+              />
+
+              <CategoriesGrid
+                categories={categories}
+                transactions={transactions}
+                layoutMode={columnsLayout}
+                onMove={handleMoveTransaction}
+                onUpdateName={handleUpdateTransactionName}
+                onUpdateAmount={handleUpdateTransactionAmount}
+                onToggleSpent={handleToggleTransactionSpent}
+                onMarkAllSpent={handleMarkCategorySpent}
+                onRemove={requestDeleteTransaction}
+                onAddTransaction={handleAddTransaction}
+              />
+            </div>
+
+            <DragOverlay dropAnimation={null}>
+              {activeDragTx ? (
+                <div className="rounded-xl border border-indigo-200 bg-white px-3 py-2 shadow-2xl min-w-[220px]">
+                  <p className="text-sm font-semibold text-slate-700 truncate">{activeDragTx.name || 'Untitled'}</p>
+                  <p className="text-xs font-bold text-indigo-600 tabular-nums mt-0.5">
+                    {activeDragTx.amount.toLocaleString()} MDL
+                  </p>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </>
+      ) : (
+        <SettingsPanel
+          categories={categories}
+          onAddCategory={handleAddCategory}
+          onDeleteCategory={requestDeleteCategory}
+        />
+      )}
 
       <button
         onClick={() => setIsAddExpenseModalOpen(true)}
-        className="fixed bottom-5 right-5 md:bottom-8 md:right-8 w-[52px] h-[52px] md:w-16 md:h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-2xl shadow-indigo-400 hover:bg-indigo-700 md:hover:scale-110 active:scale-95 transition-all z-40 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        className="hidden md:flex fixed bottom-8 right-8 w-16 h-16 bg-indigo-600 text-white rounded-full items-center justify-center shadow-2xl shadow-indigo-400 hover:bg-indigo-700 md:hover:scale-110 active:scale-95 transition-all z-40 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 md:h-8 md:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
@@ -487,6 +680,39 @@ const PlannerApp: React.FC = () => {
           Add Expense
         </span>
       </button>
+
+      <nav className="md:hidden fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-slate-200 bg-white/95 backdrop-blur px-2 py-2 shadow-lg">
+        <div className="grid grid-cols-3 gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('board')}
+            className={`h-11 rounded-xl text-xs font-bold uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+              activeTab === 'board' ? 'bg-slate-900 text-white' : 'text-slate-600'
+            }`}
+          >
+            Board
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsAddExpenseModalOpen(true)}
+            className="h-11 rounded-xl bg-indigo-600 text-white inline-flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+            </svg>
+            Add
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('settings')}
+            className={`h-11 rounded-xl text-xs font-bold uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+              activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-600'
+            }`}
+          >
+            Settings
+          </button>
+        </div>
+      </nav>
 
       <InitialBalanceModal
         isOpen={isInitialBalanceModalOpen}

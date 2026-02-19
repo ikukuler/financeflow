@@ -61,7 +61,12 @@ const UnallocatedPool: React.FC<UnallocatedPoolProps> = ({
             <p className="mt-1 text-[11px] font-medium text-slate-400">New expenses land here before categorization.</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="space-y-2">
+            <div className="hidden lg:grid grid-cols-[1fr_112px_128px] gap-3 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span>Expense</span>
+              <span className="text-right">Amount</span>
+              <span className="text-right">Actions</span>
+            </div>
             {transactions.map((tx) => (
               <TransactionItem
                 key={tx.id}
@@ -72,6 +77,7 @@ const UnallocatedPool: React.FC<UnallocatedPoolProps> = ({
                 onUpdateAmount={onUpdateAmount}
                 onToggleSpent={onToggleSpent}
                 onRemove={onRemove}
+                forceNameInput
               />
             ))}
           </div>

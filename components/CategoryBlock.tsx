@@ -243,7 +243,14 @@ const CategoryBlock: React.FC<CategoryBlockProps> = ({
           </div>
         )}
 
-        <div className="flex flex-wrap gap-3">
+        <div className="space-y-2">
+          {transactions.length > 0 && (
+            <div className="hidden lg:grid grid-cols-[1fr_112px_128px] gap-3 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              <span>Expense</span>
+              <span className="text-right">Amount</span>
+              <span className="text-right">Actions</span>
+            </div>
+          )}
           {transactions.length === 0 && !isAdding ? (
             <div className="w-full py-10 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl">
                <svg className="w-8 h-8 text-slate-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

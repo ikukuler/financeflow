@@ -161,19 +161,111 @@
   - `npm run lint` passed after fixes
   - `npm run typecheck` passed after fixes
 
-## Kanban Spec: Remaining Work (after 2026-02-19 session)
+<!-- ## Kanban Spec: Remaining Work (after 2026-02-19 session)
 - Board periods are not yet exposed as full UI flows:
-  - no explicit create/select/manage board period UX (`period_start`/`period_end` are in DB/repository, but not fully productized in UI)
-- Navigation shell is only partially aligned:
-  - Board/Add/Settings are usable
-  - Insights is not implemented (left for next phase)
-- Test scope from spec is still pending:
-  - repository tests for move/reorder and cascade delete behavior
-  - UI integration tests for desktop DnD, mobile select move, same-column reorder
-- DnD performance/UX still needs final stabilization pass:
-  - occasional drag-start lag/freeze reported by user under real usage
+  - no explicit create/select/manage board period UX (`period_start`/`period_end` are in DB/repository, but not fully productized in UI) -->
   
-  ## Out of Scope (Phase 2)
+## Out of Scope (Phase 2)
 - `safe daily`, `burn rate`, projections
 - recurring/automation
 - advanced insights and goals
+
+---
+
+# Session Notes (2026-02-28)
+
+## Completed Today
+- Reworked planner navigation to route-based pages instead of local tab-only switching:
+  - `/` now redirects to `/board`
+  - `/board` and `/settings` are backed by App Router routes
+  - planner shell is preserved across route switches via shared layout group:
+    - `app/(planner)/layout.tsx`
+    - `app/(planner)/board/page.tsx`
+    - `app/(planner)/settings/page.tsx`
+- Aligned page-level structure with current FSD direction:
+  - added `views/board/ui/BoardView.tsx`
+  - added `views/settings/ui/SettingsView.tsx`
+- Removed duplicate category management block from the main board screen:
+  - category create/delete is now handled from settings only
+- Reworked top app shell/header:
+  - top navigation now uses real route links for `Board` and `Settings`
+  - mobile menu now uses shadcn `Sheet`
+  - summary block remains below nav with balance metrics and `Set Initial Sum`
+- Fixed route-switch reloading issue:
+  - planner/auth/data shell no longer remounts between `/board` and `/settings`
+  - settings page should not trigger full planner re-load during normal in-app navigation
+
+## shadcn / UI Migration
+- Initialized shadcn via CLI and generated base primitives:
+  - `components/ui/button.tsx`
+  - `components/ui/input.tsx`
+  - `components/ui/label.tsx`
+  - `components/ui/card.tsx`
+  - `components/ui/dialog.tsx`
+  - `components/ui/alert-dialog.tsx`
+  - `components/ui/sheet.tsx`
+  - `components/ui/dropdown-menu.tsx`
+  - `components/ui/separator.tsx`
+  - `components/ui/textarea.tsx`
+  - `components/ui/badge.tsx`
+  - `components/ui/combobox.tsx`
+- Adopted standard shadcn utility setup:
+  - `lib/utils.ts` now uses `clsx` + `tailwind-merge`
+- Migrated core screens/components to shadcn primitives:
+  - `components/sections/AppHeader.tsx`
+  - `components/InitialBalanceModal.tsx`
+  - `components/modals/AddExpenseModal.tsx`
+  - `components/sections/SettingsPanel.tsx`
+  - `components/AuthScreen.tsx`
+  - `components/NewTransactionForm.tsx`
+- Extracted delete confirmation into a dedicated feature using shadcn `AlertDialog`:
+  - `features/delete-entity/ui/DeleteEntityDialog.tsx`
+- Replaced previous category picker implementation with shadcn/Base UI combobox:
+  - `components/SearchableSelect.tsx`
+  - enabled `autoHighlight`
+- Removed obsolete dependency after combobox migration:
+  - `react-select` uninstalled
+
+## Tooling / Infra Notes
+- shadcn/Tailwind CSS imports failed under current `Next 16 + Turbopack` setup due to CSS package export resolution issues.
+- Resolved by switching local Next scripts to webpack:
+  - `npm run dev` -> `next dev --webpack -p 3000`
+  - `npm run build` -> `next build --webpack`
+- Restored standard shadcn CSS imports in `app/globals.css` after webpack switch:
+  - `@import "tw-animate-css";`
+  - `@import "shadcn/tailwind.css";`
+- Regenerated Next route types after route restructuring:
+  - `npx next typegen`
+
+## Validation Status
+- `npm run typecheck` passed after final changes.
+
+## Working Notes
+- `SHADCN_MIGRATION_PLAN.md` was added and updated during the session as a running migration tracker/history.
+- Board internals (`CategoryBlock`, `TransactionItem`, DnD-heavy surfaces) were intentionally not deeply refactored yet.
+
+## Suggested Next Steps
+- Continue shadcn migration into:
+  - `components/TransactionItem.tsx`
+  - `components/CategoryBlock.tsx`
+- Consider whether remaining notes/docs should be updated to reflect:
+  - webpack usage for local dev/build
+  - replacement of `react-select` with shadcn combobox
+- Add a first-run onboarding wizard:
+  - for new users, offer starter category templates (for example: rent, utilities, entertainment, etc.)
+  - step 1: choose a template
+  - step 2: enter total amount and suggest a 50 / 30 / 20 split:
+    - 50% needs
+    - 30% wants
+    - 20% savings
+  - preselect the first 3 relevant categories by default; if missing, offer to create them during the flow
+  - optional follow-up tools:
+    - savings goal calculator
+    - emergency fund calculator
+- Add Insights:
+  - burn rate save daily and related charts already noted earlier
+  - category breakdown charts/visualizations
+- Add transaction dates:
+  - allow setting/editing a date on each transaction
+- Add date filters:
+  - default presets: 1 day, week, month, 3 months, custom range

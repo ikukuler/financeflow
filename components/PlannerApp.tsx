@@ -13,18 +13,18 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { usePathname } from 'next/navigation';
 import { Toaster, toast } from 'sonner';
 import AuthScreen from './AuthScreen';
+import DeleteEntityDialog from '@/features/delete-entity/ui/DeleteEntityDialog';
 import InitialBalanceModal from './InitialBalanceModal';
 import AddExpenseModal from './modals/AddExpenseModal';
 import AppHeader from './sections/AppHeader';
-import CategoriesGrid from './sections/CategoriesGrid';
-import CategoryToolbar from './sections/CategoryToolbar';
-import SettingsPanel from './sections/SettingsPanel';
-import UnallocatedPool from './sections/UnallocatedPool';
 import { useBudgetPlanner } from '../hooks/useBudgetPlanner';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import { DEMO_CLEANUP_MINUTES, isDemoUserEmail } from '@/lib/demo-config';
+import BoardView from '@/views/board/ui/BoardView';
+import SettingsView from '@/views/settings/ui/SettingsView';
 
 const PlannerSkeleton: React.FC = () => (
   <div className="min-h-screen px-3 sm:px-4 lg:px-5 py-4 md:py-6 space-y-6 animate-pulse">
@@ -77,13 +77,11 @@ const parseColId = (id: string): string | null | undefined => {
 const PlannerApp: React.FC = () => {
   const [isInitialBalanceModalOpen, setIsInitialBalanceModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'board' | 'settings'>('board');
   const [columnsLayout, setColumnsLayout] = useState<'scroll' | 'wrap'>('scroll');
   const [pendingDelete, setPendingDelete] = useState<PendingDeleteAction | null>(null);
   const [isDndTipVisible, setIsDndTipVisible] = useState(false);
   const [activeDragTxId, setActiveDragTxId] = useState<string | null>(null);
   const lastErrorToastRef = useRef<string | null>(null);
-  const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const {
     user,
@@ -136,6 +134,8 @@ const PlannerApp: React.FC = () => {
   const isDemoUser = isDemoUserEmail(user?.email);
   const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pathname = usePathname();
+  const activeTab: 'board' | 'settings' = pathname === '/settings' ? 'settings' : 'board';
 
   useEffect(() => {
     if (!error) {
@@ -470,11 +470,6 @@ const PlannerApp: React.FC = () => {
     setIsDndTipVisible(!dismissed);
   }, [hasInitialLoadCompleted]);
 
-  useEffect(() => {
-    if (!pendingDelete) return;
-    cancelDeleteButtonRef.current?.focus();
-  }, [pendingDelete]);
-
   if (isAuthLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
@@ -560,109 +555,35 @@ const PlannerApp: React.FC = () => {
         totalAllocated={totalAllocated}
         remainingBalance={remainingBalance}
         onOpenInitialBalanceModal={() => setIsInitialBalanceModalOpen(true)}
+        activeTab={activeTab}
         userEmail={user.email ?? null}
         onSignOut={() => {
           void signOut();
         }}
       />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-2 hidden md:flex flex-wrap items-center justify-between gap-2">
-        <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('board')}
-            className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-              activeTab === 'board' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Board
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-              activeTab === 'settings' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Settings
-          </button>
-        </div>
-
-        {activeTab === 'board' && (
-          <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
-            <button
-              type="button"
-              onClick={() => setColumnsLayout('scroll')}
-              className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-                columnsLayout === 'scroll' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Scroll
-            </button>
-            <button
-              type="button"
-              onClick={() => setColumnsLayout('wrap')}
-              className={`h-9 px-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-                columnsLayout === 'wrap' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Wrap
-            </button>
-          </div>
-        )}
-      </div>
-
       {activeTab === 'board' ? (
-        <>
-          <CategoryToolbar categories={categories} onAddCategory={handleAddCategory} onDeleteCategory={requestDeleteCategory} />
-
-          <DndContext
-            sensors={memoizedSensors}
-            collisionDetection={closestCenter}
-            autoScroll={false}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="grid grid-cols-1 xl:grid-cols-[340px_minmax(0,1fr)] gap-5 items-start">
-              <UnallocatedPool
-                dndId={colDndId(null)}
-                transactions={uncategorizedTransactions}
-                categories={categories}
-                onMove={handleMoveTransaction}
-                onUpdateName={handleUpdateTransactionName}
-                onUpdateAmount={handleUpdateTransactionAmount}
-                onToggleSpent={handleToggleTransactionSpent}
-                onRemove={requestDeleteTransaction}
-              />
-
-              <CategoriesGrid
-                categories={categories}
-                transactions={transactions}
-                layoutMode={columnsLayout}
-                onMove={handleMoveTransaction}
-                onUpdateName={handleUpdateTransactionName}
-                onUpdateAmount={handleUpdateTransactionAmount}
-                onToggleSpent={handleToggleTransactionSpent}
-                onMarkAllSpent={handleMarkCategorySpent}
-                onRemove={requestDeleteTransaction}
-                onAddTransaction={handleAddTransaction}
-              />
-            </div>
-
-            <DragOverlay dropAnimation={null}>
-              {activeDragTx ? (
-                <div className="rounded-xl border border-indigo-200 bg-white px-3 py-2 shadow-2xl min-w-[220px]">
-                  <p className="text-sm font-semibold text-slate-700 truncate">{activeDragTx.name || 'Untitled'}</p>
-                  <p className="text-xs font-bold text-indigo-600 tabular-nums mt-0.5">
-                    {activeDragTx.amount.toLocaleString()} MDL
-                  </p>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
-        </>
+        <BoardView
+          categories={categories}
+          transactions={transactions}
+          uncategorizedTransactions={uncategorizedTransactions}
+          layoutMode={columnsLayout}
+          activeDragTx={activeDragTx}
+          colDndId={colDndId}
+          sensors={memoizedSensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onLayoutChange={setColumnsLayout}
+          onMove={handleMoveTransaction}
+          onUpdateName={handleUpdateTransactionName}
+          onUpdateAmount={handleUpdateTransactionAmount}
+          onToggleSpent={handleToggleTransactionSpent}
+          onMarkAllSpent={handleMarkCategorySpent}
+          onRemove={requestDeleteTransaction}
+          onAddTransaction={handleAddTransaction}
+        />
       ) : (
-        <SettingsPanel
+        <SettingsView
           categories={categories}
           onAddCategory={handleAddCategory}
           onDeleteCategory={requestDeleteCategory}
@@ -671,48 +592,17 @@ const PlannerApp: React.FC = () => {
 
       <button
         onClick={() => setIsAddExpenseModalOpen(true)}
-        className="hidden md:flex fixed bottom-8 right-8 w-16 h-16 bg-indigo-600 text-white rounded-full items-center justify-center shadow-2xl shadow-indigo-400 hover:bg-indigo-700 md:hover:scale-110 active:scale-95 transition-all z-40 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        className={`fixed bottom-4 right-4 z-40 h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-2xl shadow-indigo-400 transition-all hover:bg-indigo-700 active:scale-95 sm:bottom-6 sm:right-6 sm:h-16 sm:w-16 md:hover:scale-110 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${
+          activeTab === 'board' ? 'flex' : 'hidden'
+        }`}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 md:h-8 md:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-8 sm:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
         </svg>
-        <span className="absolute right-16 md:right-20 bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 md:group-hover:opacity-100 transition-opacity pointer-events-none uppercase tracking-widest">
+        <span className="absolute right-16 hidden whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-white opacity-0 transition-opacity pointer-events-none md:right-20 md:block md:group-hover:opacity-100">
           Add Expense
         </span>
       </button>
-
-      <nav className="md:hidden fixed inset-x-3 bottom-3 z-50 rounded-2xl border border-slate-200 bg-white/95 backdrop-blur px-2 py-2 shadow-lg">
-        <div className="grid grid-cols-3 gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('board')}
-            className={`h-11 rounded-xl text-xs font-bold uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-              activeTab === 'board' ? 'bg-slate-900 text-white' : 'text-slate-600'
-            }`}
-          >
-            Board
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAddExpenseModalOpen(true)}
-            className="h-11 rounded-xl bg-indigo-600 text-white inline-flex items-center justify-center gap-1 text-xs font-black uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
-            </svg>
-            Add
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`h-11 rounded-xl text-xs font-bold uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-              activeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-600'
-            }`}
-          >
-            Settings
-          </button>
-        </div>
-      </nav>
 
       <InitialBalanceModal
         isOpen={isInitialBalanceModalOpen}
@@ -729,33 +619,13 @@ const PlannerApp: React.FC = () => {
       />
 
       {pendingDelete && (
-        <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setPendingDelete(null)} />
-          <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-black text-slate-800">Confirm deletion</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Delete {pendingDelete.type === 'transaction' ? 'transaction' : 'category'} &quot;{pendingDelete.label}&quot;?
-            </p>
-            <p className="mt-1 text-xs text-slate-400">This action cannot be undone.</p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setPendingDelete(null)}
-                ref={cancelDeleteButtonRef}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-1"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteEntityDialog
+          isOpen={!!pendingDelete}
+          entityType={pendingDelete.type}
+          label={pendingDelete.label}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={confirmDelete}
+        />
       )}
     </div>
   );

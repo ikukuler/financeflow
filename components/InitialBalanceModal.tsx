@@ -1,5 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface InitialBalanceModalProps {
   isOpen: boolean;
@@ -17,8 +26,6 @@ const InitialBalanceModal: React.FC<InitialBalanceModalProps> = ({ isOpen, onClo
     }
   }, [isOpen, currentBalance]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = parseFloat(value);
@@ -28,48 +35,40 @@ const InitialBalanceModal: React.FC<InitialBalanceModalProps> = ({ isOpen, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity cursor-pointer"
-        onClick={onClose}
-      />
-      
-      <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 transform transition-all animate-in fade-in zoom-in duration-200">
-        <h2 className="text-2xl font-black text-slate-800 mb-2">Set Initial Sum</h2>
-        <p className="text-slate-500 mb-6">Enter your starting budget in MDL. Expenses will be subtracted from this amount.</p>
-        
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md rounded-3xl p-8 sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-black text-slate-800">Set Initial Sum</DialogTitle>
+          <DialogDescription className="text-slate-500">
+            Enter your starting budget in MDL. Expenses will be subtracted from this amount.
+          </DialogDescription>
+        </DialogHeader>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="relative">
-            <input 
+            <Input
               autoFocus
-              type="number" 
+              type="number"
               step="0.01"
               value={value}
               onChange={(e) => setValue(e.target.value)}
-              className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-2xl font-bold text-slate-800 focus:border-indigo-500 focus:ring-0 outline-none transition-all pr-16"
+              className="h-16 rounded-2xl border-2 border-slate-100 bg-slate-50 pr-16 text-2xl font-bold text-slate-800"
               placeholder="0.00"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg font-bold">MDL</span>
+            <span className="absolute top-1/2 right-4 -translate-y-1/2 text-lg font-bold text-slate-400">MDL</span>
           </div>
-          
-          <div className="flex gap-3">
-            <button 
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 px-6 rounded-xl font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
-            >
+
+          <DialogFooter className="flex gap-3 sm:justify-stretch">
+            <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
               Cancel
-            </button>
-            <button 
-              type="submit"
-              className="flex-1 py-3 px-6 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] cursor-pointer"
-            >
+            </Button>
+            <Button type="submit" className="flex-1 bg-indigo-600 hover:bg-indigo-700">
               Save Changes
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

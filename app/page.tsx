@@ -1,5 +1,5 @@
-import PlannerApp from '@/components/PlannerApp';
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <PlannerApp />;
+  redirect('/board');
 }

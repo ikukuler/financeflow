@@ -1,5 +1,7 @@
-
 import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Category } from '../types';
 import SearchableSelect from './SearchableSelect';
 
@@ -63,14 +65,14 @@ const NewTransactionForm: React.FC<NewTransactionFormProps> = ({ categories, onA
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">
+        <Label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">
           Amounts (one per line)
-        </label>
+        </Label>
         <div className="relative">
-          <textarea 
+          <Textarea
             value={inputContent}
             onChange={(e) => setInputContent(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 bg-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all min-h-[120px] font-mono text-slate-800"
+            className="min-h-[120px] rounded-xl border-slate-200 bg-white px-4 py-3 font-mono text-slate-800"
             placeholder={"100\n50$\n20 euro"}
             required
           />
@@ -82,7 +84,7 @@ const NewTransactionForm: React.FC<NewTransactionFormProps> = ({ categories, onA
       </div>
 
       <div>
-        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5">Target Allocation</label>
+        <Label className="mb-1.5 block text-xs font-bold uppercase tracking-widest text-slate-400">Target Allocation</Label>
         <SearchableSelect 
           categories={categories}
           value={categoryId}
@@ -91,12 +93,12 @@ const NewTransactionForm: React.FC<NewTransactionFormProps> = ({ categories, onA
         />
       </div>
 
-      <button 
+      <Button
         type="submit"
-        className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-900 active:scale-[0.98] transition-all shadow-lg cursor-pointer"
+        className="h-11 w-full rounded-xl bg-slate-800 font-bold text-white hover:bg-slate-900"
       >
         Subtract Amounts
-      </button>
+      </Button>
     </form>
   );
 };
